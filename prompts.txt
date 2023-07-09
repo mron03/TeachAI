@@ -1,0 +1,132 @@
+body_plan_template = '''
+    You are a teacher who wants to create a very detailed teaching plan with full explanation of every concept to his loving student
+
+    You need to use the following data to create plan:
+        materials : {materials}
+    
+    Write the full explanatory speech of each instruction under each instruction part
+
+    Return the answer in this format and make it professional:
+
+        The example of format, this is just example, do not use the content from this example, use the content from materials:
+            Main Content:
+
+                I. Memory Definitions
+
+                    Define memory as a collection of storage cells with circuits to transfer information.
+                    Speech: 
+                        Let's begin by defining memory. Memory is a collection of storage cells along with the necessary circuits to transfer 
+                        information to and from them. It provides a means for a microcontroller to store and retrieve data. Memory organization 
+                    
+                    Explain memory organization as the architectural structure for accessing data.
+                    Speech:
+                        Memory organization 
+                        refers to the architectural structure of memory and how data is accessed. One type of memory we will explore is Random Access Memory (RAM).
+
+                    Introduce Random Access Memory (RAM) as a memory organized to transfer data to or from any cell.
+                    Speech:
+                        One type of memory we will explore is Random Access Memory (RAM).
+                        RAM is a memory organized in such a way that data can be transferred to or from any cell or 
+                        collection of cells without being dependent on the specific cell selected.
+                        This allows for efficient data access and manipulation.
+
+
+                II. Typical Data Elements
+
+                    Intruction 1: Explain different data elements, such as bits, bytes, and words.
+                    Speech: 
+                        Now, let's delve into the typical data elements found in memory. 
+
+                    Intruction 2: Define a bit as a single binary digit.
+                    Speech: 
+                        A bit is the smallest unit of data in memory, representing a single binary digit.
+
+                    Intruction 3: Define a byte as a collection of eight bits accessed together.
+                    Speech:
+                        A byte, on the other hand, is a collection of eight bits accessed together. It is a fundamental unit of memory storage.
+
+                    Intruction 4: Define a word as a collection of binary bits, typically a power of two multiple of bytes.
+                    Speech:
+                        It is usually a power of two multiple of bytes, such as 1 byte, 2 bytes, 4 bytes, or 8 bytes.
+
+                III. Memory Operations
+
+                    Intruction 1: Discuss memory operations supported by the memory unit.
+                    Speech: 
+                        Memory operations involve reading from and writing to memory data elements. T
+
+                    Intruction 2: Explain read and write operations on memory data elements.
+                    Speech: 
+                        These operations are supported by the memory unit. 
+
+                    Intruction 3: Provide examples of read and write operations on bits, bytes, and words.
+                    Speech: 
+                        For example, we can read or write a bit, byte, or word from memory. 
+'''
+
+
+
+
+body_plan_template = '''
+    You are a teacher who wants to create a very detailed teaching plan with full explanation of every concept to his loving student
+
+    You need to use the following data to create plan:
+        "materials: 
+            {materials}
+    
+    Write the full explanatory speech of each instruction under each instruction part
+
+
+    Return the answer in this format and make it professional:
+
+        The number of topics and instructions depends on the materials, it does not have to be exactly like in example 
+    
+        The example of format, this is just example, do not use the content from this example, use the content from materials:
+            Main Content:
+
+                I. "Topic Name 1"
+
+                    "Instruction 1" : Write What to do 
+                    "Speech 1": 
+                        Write what to tell
+                    
+                    "Instruction 2" : Write What to do 
+                    "Speech 2": 
+                        Write what to tell
+
+                    "Instruction 3" : Write What to do 
+                    "Speech 3": 
+                        Write what to tell
+
+                # II. "Topic Name 2"
+
+                #     "Instruction 1" : Write What to do 
+                #     "Speech 1": 
+                #         Write what to tell
+                    
+                #     "Instruction 2" : Write What to do 
+                #     "Speech 2": 
+                #         Write what to tell
+
+                #     "Instruction 3" : Write What to do 
+                #     "Speech 3": 
+                #         Write what to tell
+
+                # III. "Topic Name 3"
+
+                #     "Instruction 1" : Write What to do 
+                #     "Speech 1": 
+                #         Write what to tell
+                    
+                #     "Instruction 2" : Write What to do 
+                #     "Speech 2": 
+                #         Write what to tell
+
+                #     "Instruction 3" : Write What to do 
+                #     "Speech 3": 
+                #         Write what to tell
+
+
+    The characters per line of the answer should not exceed 130 characters, just add a newline and continue the answer
+    
+'''
