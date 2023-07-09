@@ -91,9 +91,6 @@ def create_plan_by_youtube(prompt):
 
     return response
      
-def handle_error(error):
-    # Custom error handling logic
-    return "Custom error message: No transcript provided in the video"
 
 def summarize_videos(video_urls):
     summaries = []
@@ -108,7 +105,7 @@ def summarize_videos(video_urls):
     chain = load_summarize_chain(llm=OpenAI(), chain_type="stuff", prompt=prompt)
 
     for url in video_urls:
-         loader = YoutubeLoader.from_youtube_url(youtube_url=url, handle_parsing_errors=True, handle_error=handle_error)
+         loader = YoutubeLoader.from_youtube_url(youtube_url=url)
          transcript = loader.load_and_split()
          summary = chain.run(transcript)
          summaries.append(summary)
