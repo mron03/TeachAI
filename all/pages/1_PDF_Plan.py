@@ -1,30 +1,18 @@
 import json
 import os, tempfile
-import textwrap
-from PyPDF2 import DocumentInformation
 from dotenv import load_dotenv
-from langchain import LLMChain, PromptTemplate
+from langchain import LLMChain
 import streamlit as st
-from langchain.llms.openai import OpenAI
-from langchain.vectorstores.chroma import Chroma
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.chains.summarize import load_summarize_chain
 from langchain.document_loaders import PyPDFLoader
-from langchain.chains.question_answering import load_qa_chain
 from streamlit_chat import message
 from langchain.chat_models import ChatOpenAI
 from langchain.callbacks import get_openai_callback
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.prompts.chat import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
-from langchain.document_loaders import TextLoader
-import psycopg2
 from langchain.memory import ConversationSummaryMemory
 
 

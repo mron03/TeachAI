@@ -1,10 +1,9 @@
 from dotenv import load_dotenv
-from langchain import FAISS, LLMChain, OpenAI
+from langchain import LLMChain, OpenAI
 import requests, json, os
 from langchain.document_loaders import YoutubeLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.chains import RetrievalQA
 from langchain.callbacks import get_openai_callback
 from langchain.vectorstores import Chroma
 from langchain.chat_models import ChatOpenAI
