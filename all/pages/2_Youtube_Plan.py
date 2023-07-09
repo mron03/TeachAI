@@ -187,8 +187,7 @@ from langchain.chains.question_answering import load_qa_chain
 from streamlit_chat import message
 from langchain.chat_models import ChatOpenAI
 from langchain.callbacks import get_openai_callback
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
+
 
 
 

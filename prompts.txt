@@ -130,3 +130,100 @@ body_plan_template = '''
     The characters per line of the answer should not exceed 130 characters, just add a newline and continue the answer
     
 '''
+
+
+
+example_main = '''
+    Teaching Plan: Memory Basics
+
+    Objective: To provide an understanding of memory definitions, types, and organization in microcontrollers.
+
+    Introduction:
+
+        Welcome students and introduce the topic of memory basics in microcontrollers.
+        Explain the importance of memory in microcontrollers and its role in storing and retrieving data.
+            Speech: "Good morning/afternoon, everyone. 
+            Today, we will be diving into the fascinating world of memory basics in microcontrollers. 
+            Memory plays a crucial role in storing and retrieving data in microcontrollers, making it an essential topic to understand.
+
+    Main Content:
+
+    I. Memory Definitions
+
+        Define memory as a collection of storage cells with circuits to transfer information.
+        Speech: 
+            Let's begin by defining memory. Memory is a collection of storage cells along with the necessary circuits to transfer 
+            information to and from them. It provides a means for a microcontroller to store and retrieve data. Memory organization 
+        
+        Explain memory organization as the architectural structure for accessing data.
+        Speech:
+            Memory organization 
+            refers to the architectural structure of memory and how data is accessed. One type of memory we will explore is Random Access Memory (RAM).
+
+        Introduce Random Access Memory (RAM) as a memory organized to transfer data to or from any cell.
+        Speech:
+            One type of memory we will explore is Random Access Memory (RAM).
+            RAM is a memory organized in such a way that data can be transferred to or from any cell or 
+            collection of cells without being dependent on the specific cell selected.
+            This allows for efficient data access and manipulation.
+
+
+    II. Typical Data Elements
+
+        Intruction 1: Explain different data elements, such as bits, bytes, and words.
+        Speech: 
+            Now, let's delve into the typical data elements found in memory. 
+
+        Intruction 2: Define a bit as a single binary digit.
+        Speech: 
+            A bit is the smallest unit of data in memory, representing a single binary digit.
+
+        Intruction 3: Define a byte as a collection of eight bits accessed together.
+        Speech:
+            A byte, on the other hand, is a collection of eight bits accessed together. It is a fundamental unit of memory storage.
+
+        Intruction 4: Define a word as a collection of binary bits, typically a power of two multiple of bytes.
+        Speech:
+            It is usually a power of two multiple of bytes, such as 1 byte, 2 bytes, 4 bytes, or 8 bytes.
+
+    III. Memory Operations
+
+        Intruction 1: Discuss memory operations supported by the memory unit.
+        Speech: 
+            Memory operations involve reading from and writing to memory data elements. T
+
+        Intruction 2: Explain read and write operations on memory data elements.
+        Speech: 
+            These operations are supported by the memory unit. 
+
+        Intruction 3: Provide examples of read and write operations on bits, bytes, and words.
+        Speech: 
+            For example, we can read or write a bit, byte, or word from memory. 
+
+    Conclusion
+
+        Intruction 1: Summarize the key points discussed in the teaching session.
+        Intruction 2: Emphasize the importance of understanding memory basics in microcontrollers.
+        Intruction 3: Encourage students to explore further resources and practice applying memory concepts.
+        
+        Speech:
+            To wrap up, understanding memory basics is crucial for working with microcontrollers. We have covered 
+            memory definitions, types, and organization, as well as memory operations. I encourage you to explore 
+            further resources and practice applying these concepts in your projects.
+
+'''
+
+full_plan_system_template = '''
+    You are a teacher who wants to create a very detailed teaching plan with full explanation of every concept to his loving student
+
+    You will write a full speech like you need to present the lecture before the students
+
+    You need to use the following data:
+        {materials}
+    
+    Write the full explanatory speech of each instruction under each instruction part
+
+    Return the answer in this format and make it professional:
+        The example of format:
+            {example}
+'''

@@ -13,23 +13,6 @@ from langchain.prompts.chat import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
-from langchain.memory import ConversationSummaryMemory
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # try:
@@ -44,103 +27,6 @@ from langchain.memory import ConversationSummaryMemory
 # except (Exception, psycopg2.Error) as error:
 #     print("Error while connecting to PostgreSQL:", error)
 
-
-
-
-example_main = '''
-    Teaching Plan: Memory Basics
-
-    Objective: To provide an understanding of memory definitions, types, and organization in microcontrollers.
-
-    Introduction:
-
-        Welcome students and introduce the topic of memory basics in microcontrollers.
-        Explain the importance of memory in microcontrollers and its role in storing and retrieving data.
-            Speech: "Good morning/afternoon, everyone. 
-            Today, we will be diving into the fascinating world of memory basics in microcontrollers. 
-            Memory plays a crucial role in storing and retrieving data in microcontrollers, making it an essential topic to understand.
-
-    Main Content:
-
-    I. Memory Definitions
-
-        Define memory as a collection of storage cells with circuits to transfer information.
-        Speech: 
-            Let's begin by defining memory. Memory is a collection of storage cells along with the necessary circuits to transfer 
-            information to and from them. It provides a means for a microcontroller to store and retrieve data. Memory organization 
-        
-        Explain memory organization as the architectural structure for accessing data.
-        Speech:
-            Memory organization 
-            refers to the architectural structure of memory and how data is accessed. One type of memory we will explore is Random Access Memory (RAM).
-
-        Introduce Random Access Memory (RAM) as a memory organized to transfer data to or from any cell.
-        Speech:
-            One type of memory we will explore is Random Access Memory (RAM).
-            RAM is a memory organized in such a way that data can be transferred to or from any cell or 
-            collection of cells without being dependent on the specific cell selected.
-            This allows for efficient data access and manipulation.
-
-
-    II. Typical Data Elements
-
-        Intruction 1: Explain different data elements, such as bits, bytes, and words.
-        Speech: 
-            Now, let's delve into the typical data elements found in memory. 
-
-        Intruction 2: Define a bit as a single binary digit.
-        Speech: 
-            A bit is the smallest unit of data in memory, representing a single binary digit.
-
-        Intruction 3: Define a byte as a collection of eight bits accessed together.
-        Speech:
-            A byte, on the other hand, is a collection of eight bits accessed together. It is a fundamental unit of memory storage.
-
-        Intruction 4: Define a word as a collection of binary bits, typically a power of two multiple of bytes.
-        Speech:
-            It is usually a power of two multiple of bytes, such as 1 byte, 2 bytes, 4 bytes, or 8 bytes.
-
-    III. Memory Operations
-
-        Intruction 1: Discuss memory operations supported by the memory unit.
-        Speech: 
-            Memory operations involve reading from and writing to memory data elements. T
-
-        Intruction 2: Explain read and write operations on memory data elements.
-        Speech: 
-            These operations are supported by the memory unit. 
-
-        Intruction 3: Provide examples of read and write operations on bits, bytes, and words.
-        Speech: 
-            For example, we can read or write a bit, byte, or word from memory. 
-
-    Conclusion
-
-        Intruction 1: Summarize the key points discussed in the teaching session.
-        Intruction 2: Emphasize the importance of understanding memory basics in microcontrollers.
-        Intruction 3: Encourage students to explore further resources and practice applying memory concepts.
-        
-        Speech:
-            To wrap up, understanding memory basics is crucial for working with microcontrollers. We have covered 
-            memory definitions, types, and organization, as well as memory operations. I encourage you to explore 
-            further resources and practice applying these concepts in your projects.
-
-'''
-
-full_plan_system_template = '''
-    You are a teacher who wants to create a very detailed teaching plan with full explanation of every concept to his loving student
-
-    You will write a full speech like you need to present the lecture before the students
-
-    You need to use the following data:
-        {materials}
-    
-    Write the full explanatory speech of each instruction under each instruction part
-
-    Return the answer in this format and make it professional:
-        The example of format:
-            {example}
-'''
 human_template = '''Complete the following request: {query}'''
 
 body_plan_template = '''
@@ -190,9 +76,8 @@ def get_response(user_input, pages):
 
     chain_prompt = ChatPromptTemplate.from_messages([human_prompt, system_prompt])
 
-    memory = ConversationSummaryMemory(llm=llm)
 
-    chain = LLMChain(llm=llm, prompt=chain_prompt, memory=memory, verbose=True)
+    chain = LLMChain(llm=llm, prompt=chain_prompt, verbose=True)
 
     # search = vectordb.similarity_search(user_input)
     with get_openai_callback() as cb:
@@ -202,36 +87,36 @@ def get_response(user_input, pages):
     return response
 
 
-def correct_result(result):
-    llm=ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0.1)
+# def correct_result(result):
+#     llm=ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0.1)
 
-    system_template = ''''
-        You are a assistant to complete the given teaching plan
+#     system_template = ''''
+#         You are a assistant to complete the given teaching plan
 
-        You need to use this sample plan:
-            {result}
+#         You need to use this sample plan:
+#             {result}
 
-        Write the answer in this format:
-            {example} 
-    '''
+#         Write the answer in this format:
+#             {example} 
+#     '''
 
-    system_prompt = SystemMessagePromptTemplate.from_template(system_template)
+#     system_prompt = SystemMessagePromptTemplate.from_template(system_template)
 
-    human_template = '''
-        Complete the teaching plan 
-    '''
-    human_prompt = HumanMessagePromptTemplate.from_template(human_template)
+#     human_template = '''
+#         Complete the teaching plan 
+#     '''
+#     human_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
-    chain_prompt = ChatPromptTemplate.from_messages([human_prompt, system_prompt])
+#     chain_prompt = ChatPromptTemplate.from_messages([human_prompt, system_prompt])
 
-    chain = LLMChain(llm=llm, prompt=chain_prompt)
+#     chain = LLMChain(llm=llm, prompt=chain_prompt)
 
-    # search = vectordb.similarity_search(user_input)
-    with get_openai_callback() as cb:
-        response = chain.run(question='create', result=result, example=example_main)
-        print(cb)
+#     # search = vectordb.similarity_search(user_input)
+#     with get_openai_callback() as cb:
+#         response = chain.run(question='create', result=result, example=example_main)
+#         print(cb)
 
-    return response
+#     return response
 
 
 load_dotenv()
