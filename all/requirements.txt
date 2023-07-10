@@ -12,4 +12,4 @@ pypdf==3.9.0
 pycryptodome==3.18
 streamlit_chat==0.1.1
 youtube-transcript-api==0.6.1
-psycopg==2.9.6
+psycopg==3.1.9
