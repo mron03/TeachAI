@@ -2,7 +2,7 @@ import json
 import os, tempfile
 from dotenv import load_dotenv
 from langchain import LLMChain
-import psycopg2
+# import psycopg2
 import streamlit as st
 from langchain.document_loaders import PyPDFLoader
 from streamlit_chat import message
@@ -16,17 +16,17 @@ from langchain.prompts.chat import (
 )
 
 
-try:
-    connection = psycopg2.connect(
-        host="172.22.0.2",
-        port="5432",
-        database="postgres",
-        user="mm",
-        password="mm"
-    )
-    print("Successfully connected to the PostgreSQL database!")
-except (Exception, psycopg2.Error) as error:
-    print("Error while connecting to PostgreSQL:", error)
+# try:
+#     connection = psycopg2.connect(
+#         host="172.22.0.2",
+#         port="5432",
+#         database="postgres",
+#         user="mm",
+#         password="mm"
+#     )
+#     print("Successfully connected to the PostgreSQL database!")
+# except (Exception, psycopg2.Error) as error:
+#     print("Error while connecting to PostgreSQL:", error)
 
 human_template = '''Complete the following request: {query}'''
 
