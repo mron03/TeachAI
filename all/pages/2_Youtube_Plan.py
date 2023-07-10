@@ -102,7 +102,7 @@ def summarize_videos(video_urls):
 
     DETAILED SUMMARY:"""
     prompt = PromptTemplate(template=prompt_template, input_variables=["text"])
-    chain = load_summarize_chain(llm=OpenAI(), chain_type="stuff", prompt=prompt)
+    chain = load_summarize_chain(llm=OpenAI(), chain_type="stuff", prompt=prompt, verbose=True)
 
     for url in video_urls:
          loader = YoutubeLoader.from_youtube_url(youtube_url=url)
