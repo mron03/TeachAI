@@ -2,7 +2,7 @@ import json
 import os, tempfile
 from dotenv import load_dotenv
 from langchain import LLMChain
-# import psycopg2
+import psycopg2
 import streamlit as st
 from langchain.document_loaders import PyPDFLoader
 from streamlit_chat import message
@@ -16,17 +16,41 @@ from langchain.prompts.chat import (
 )
 
 
-# try:
-#     connection = psycopg2.connect(
-#         host="172.22.0.2",
-#         port="5432",
-#         database="postgres",
-#         user="mm",
-#         password="mm"
-#     )
-#     print("Successfully connected to the PostgreSQL database!")
-# except (Exception, psycopg2.Error) as error:
-#     print("Error while connecting to PostgreSQL:", error)
+commands = [
+    '''
+    CREATE TABLE IF NOT EXISTS feedback_pdf (
+        id SERIAL PRIMARY KEY,
+        val TEXT
+    )
+    ''',
+]
+
+try:
+    connection = psycopg2.connect(
+        host="127.0.0.1",
+        port="5432",
+        database="postgres",
+        user="mm",
+        password="mm"
+    )
+    print("Successfully connected to the PostgreSQL database!")
+except (Exception, psycopg2.Error) as error:
+    print("Error while connecting to PostgreSQL:", error)
+cursor = connection.cursor()
+
+
+
+try:
+    for command in commands:
+        cursor.execute(command)
+
+    # Commit the transaction
+    connection.commit()
+
+except (Exception, psycopg2.Error) as error:
+    print("Error executing SQL statements:", error)
+    connection.rollback()
+
 
 human_template = '''Complete the following request: {query}'''
 
@@ -212,8 +236,10 @@ with container:
                     os.remove(tmp_file.name)
                     
                     responses = []
-                    for p in pages:
-                        temp = text_splitter.split_text(p.page_content)
+                    size = len(pages) if len(pages) <= 10 else 10
+
+                    for i in range(size):
+                        temp = text_splitter.split_text(pages[i].page_content)
                         response = get_response('Create plan', temp)
                         response = json.loads(response)
                         responses.append(response)
@@ -235,8 +261,18 @@ with container:
         feedback_input = st.text_area("You:", key='feedback_input', height=50)
         submit_button = st.form_submit_button(label='Send')
 
-    if submit_button:
+    if submit_button and feedback_input:
         st.success("Feedback submitted successfully!")
+
+        try:
+
+            command = "INSERT INTO feedback_pdf (val) VALUES (%s)"
+            cursor.execute(command, (feedback_input,))
+            connection.commit()
+
+        except (Exception, psycopg2.Error) as error:
+            print("Error executing SQL statements:", error)
+            connection.rollback()
 
 
 if clear_button:
@@ -271,3 +307,5 @@ if st.session_state['pdf-plan']:
 
 
 
+cursor.close()
+connection.close()

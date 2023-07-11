@@ -235,7 +235,7 @@ container = st.container()
 
 with container:
     with st.form(key='my_form', clear_on_submit=True):
-        user_input = st.text_area("You:", key='input', height=50)
+        user_input = st.text_area("Enter your topic:", key='input', height=50)
         submit_button = st.form_submit_button(label='Send')
 
 
