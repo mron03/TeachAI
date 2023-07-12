@@ -16,41 +16,36 @@ from langchain.prompts.chat import (
 )
 
 
-# commands = [
-#     '''
-#     CREATE TABLE IF NOT EXISTS feedback_pdf (
-#         id SERIAL PRIMARY KEY,
-#         val TEXT
-#     )
-#     ''',
-# ]
+load_dotenv()
 
-# try:
-#     connection = psycopg2.connect(
-#         host="127.0.0.1",
-#         port="5432",
-#         database="postgres",
-#         user="mm",
-#         password="mm"
-#     )
-#     print("Successfully connected to the PostgreSQL database!")
-# except (Exception, psycopg2.Error) as error:
-#     print("Error while connecting to PostgreSQL:", error)
-# cursor = connection.cursor()
+commands = [
+    '''
+    CREATE TABLE IF NOT EXISTS feedback_pdf (
+        id SERIAL PRIMARY KEY,
+        val TEXT
+    )
+    ''',
+    '''
+    INSERT INTO feedback_pdf (val) VALUES ({val})
+    ''',
+]
+db_host = os.getenv('DB_HOST')
+db_database = os.getenv('DB_DATABASE')
+db_user = os.getenv('DB_USER')
+db_password = os.getenv('DB_PASSWORD')
 
-
-
-# try:
-#     for command in commands:
-#         cursor.execute(command)
-
-#     # Commit the transaction
-#     connection.commit()
-
-# except (Exception, psycopg2.Error) as error:
-#     print("Error executing SQL statements:", error)
-#     connection.rollback()
-
+try:
+    connection = psycopg2.connect(
+        host=db_host,
+        database=db_database,
+        user=db_user,
+        password=db_password
+    )
+    print("Successfully connected to the PostgreSQL database!")
+    cursor = connection.cursor()
+except (Exception, psycopg2.Error) as error:
+    print("Error while connecting to PostgreSQL:", error)
+    
 
 human_template = '''Complete the following request: {query}'''
 
@@ -144,7 +139,7 @@ def get_response(user_input, pages):
 #     return response
 
 
-load_dotenv()
+
 # Set API keys from session state
 # openai_api_key = st.session_state.openai_api_key
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -264,15 +259,15 @@ with container:
     if submit_button and feedback_input:
         st.success("Feedback submitted successfully!")
 
-        # try:
+        try:
 
-        #     command = "INSERT INTO feedback_pdf (val) VALUES (%s)"
-        #     cursor.execute(command, (feedback_input,))
-        #     connection.commit()
+            command = "INSERT INTO feedback_pdf (val) VALUES (%s)"
+            cursor.execute(command, (feedback_input,))
+            connection.commit()
 
-        # except (Exception, psycopg2.Error) as error:
-        #     print("Error executing SQL statements:", error)
-        #     connection.rollback()
+        except (Exception, psycopg2.Error) as error:
+            print("Error executing SQL statements:", error)
+            connection.rollback()
 
 
 if clear_button:
@@ -307,5 +302,5 @@ if st.session_state['pdf-plan']:
 
 
 
-# cursor.close()
-# connection.close()
+cursor.close()
+connection.close()
