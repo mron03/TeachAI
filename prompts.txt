@@ -227,3 +227,35 @@ full_plan_system_template = '''
         The example of format:
             {example}
 '''
+
+
+
+# # Initialise session state variables
+# if 'generated' not in st.session_state:
+#     st.session_state['generated'] = []
+# if 'past' not in st.session_state:
+#     st.session_state['past'] = []
+# if 'messages' not in st.session_state:
+#     st.session_state['messages'] = [
+#         {"role": "system", "content": "You are a helpful assistant."}
+#     ]
+
+
+
+# # generate a response
+# def generate_response(prompt):
+#     st.session_state['messages'].append({"role": "user", "content": prompt})
+
+#     with open('transcript.txt', "r") as f:
+#         transcript = f.read()
+
+#     # response = ai.update_transcript(prompt, transcript)
+#     response = '123'
+#     with open('transcript.txt', "w") as f:
+#         f.write(response)
+    
+#     # response = ai.analyzer_transcript(prompt, transcript)
+
+#     st.session_state['messages'].append({"role": "assistant", "content": response})
+
+#     return response

@@ -9,12 +9,13 @@ import streamlit as st
 
 st.set_page_config(page_title="Home", page_icon="🦜️🔗")
 
-st.header("Welcome to TeachingAI! 👋")
+st.header("Добро Пожаловать в TeachAI! 👋")
 
 st.markdown(
     """
-    TeachAI platform will help you to plan your teaching in classes, build scenarios and edit them just by saing what you want, platform that will configure teaching plan according to your teaching style and student academic performance🔥!
+    Платформа TeachAI поможет вам планировать свое преподавание на занятиях, создавать сценарии и редактировать их, просто выбирая то, что вы хотите, платформа, которая настроит учебный план в соответствии с вашим стилем преподавания и академической успеваемостью учащихся🔥!
     
-    ##### Build your scenario based on your PDF and Youtube Videos
+    ##### Создайте свой сценарий на основе ваших PDF-файлов и видеороликов Youtube
     """
 )
+
