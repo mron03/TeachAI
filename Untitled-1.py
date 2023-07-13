@@ -121,25 +121,27 @@ def handle_feedback_submission(user_nickname, rating, pdf_content, feedback_inpu
 
 def handle_plan_creation(user_nickname, source_doc):
     try:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-            tmp_file.write(source_doc.read())
-        loader = PyPDFLoader(tmp_file.name)
-        pages = loader.load()
-        os.remove(tmp_file.name)
+        with st.spinner('Please wait...'):
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                tmp_file.write(source_doc.read())
+            loader = PyPDFLoader(tmp_file.name)
 
-        responses = []
-        size = len(pages) if len(pages) <= 10 else 10
+            pages = loader.load()
+            os.remove(tmp_file.name)
+            
+            responses = []
+            size = len(pages) if len(pages) <= 10 else 10
 
-        for i in range(size):
-            temp = pages[i].page_content
-            response = get_response('Create plan', temp)
-            response = json.loads(response)
-            responses.append(response)
+            for i in range(size):
+                temp = pages[i].page_content
+                response = get_response('Create plan', temp)
+                response = json.loads(response)
+                responses.append(response)
 
-        response = responses
+            response =  responses
 
-        st.session_state['pdf-plan']['past'].append('Create')
-        st.session_state['pdf-plan']['generated'].append(response)
+            st.session_state['pdf-plan']['past'].append('Create')
+            st.session_state['pdf-plan']['generated'].append(response)
     except Exception as e:
         st.exception(f"An error occurred: {e}")
 
