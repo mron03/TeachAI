@@ -204,7 +204,7 @@ def create_db(video_urls):
 
 def get_youtube_videos(prompt):
 
-	url = f"https://www.googleapis.com/youtube/v3/search?key={youtube_api_key}&q={prompt}&type=video&part=snippet&maxResults=2&videoDuration=medium"
+	url = f"https://www.googleapis.com/youtube/v3/search?key={youtube_api_key}&q={prompt}&type=video&part=snippet&maxResults=4&videoDuration=medium"
 
 	response = requests.get(url)
 	data = json.loads(response.content)
