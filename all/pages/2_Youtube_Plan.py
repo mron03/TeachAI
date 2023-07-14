@@ -35,7 +35,7 @@ body_template = '''
 
     DO NOT RETURN YOUR ANSWER TWICE, KEEP THE ANSWER UNIQUE WITHOUT DUPLICATES
 
-    Return the answer strictly like this JSON format:
+    Return the answer in JSON format:
 
         "Write the topic or subtopic name or something that makes sense" : {{ 
 
@@ -204,7 +204,7 @@ def create_db(video_urls):
 
 def get_youtube_videos(prompt):
 
-	url = f"https://www.googleapis.com/youtube/v3/search?key={youtube_api_key}&q={prompt}&type=video&part=snippet&maxResults=2&videoDuration=medium"
+	url = f"https://www.googleapis.com/youtube/v3/search?key={youtube_api_key}&q={prompt}&type=video&part=snippet&maxResults=1&videoDuration=medium"
 
 	response = requests.get(url)
 	data = json.loads(response.content)
