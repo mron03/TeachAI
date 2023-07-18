@@ -246,8 +246,6 @@ container = st.container()
 with container:
     if user_nickname:
         submit_button = st.button(label='Создать')
-        st.subheader('Пожалуйста подождите от 2 до 5 минут в зависимости от размера документа.')
-
 
         if submit_button:
             if not openai_api_key:
