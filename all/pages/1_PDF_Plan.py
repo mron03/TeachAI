@@ -156,7 +156,7 @@ def handle_feedback_submission(user_nickname, rating, pdf_content, feedback_inpu
 
 def handle_plan_creation(source_doc):
     try:
-        with st.spinner('Please wait...'):
+        with st.spinner('Пожалуйста подождите от 2 до 5 минут в зависимости от размера документа.'):
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
                 tmp_file.write(source_doc.read())
             loader = PyPDFLoader(tmp_file.name)
