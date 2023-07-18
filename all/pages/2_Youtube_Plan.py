@@ -274,7 +274,7 @@ with container:
         with st.form(key='my_form', clear_on_submit=True):
             user_input = st.text_area("Введи название темы", key='input', height=50)
             submit_button = st.form_submit_button(label='Отправить')
-		st.subheader('Пожалуйста подождите до 5 минут в зависимости от сложности запроса')
+	     st.subheader('Пожалуйста подождите до 5 минут в зависимости от сложности запроса')
 
 
         if submit_button and user_input:
