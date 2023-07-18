@@ -274,16 +274,15 @@ with container:
         with st.form(key='my_form', clear_on_submit=True):
             user_input = st.text_area("Введи название темы", key='input', height=50)
             submit_button = st.form_submit_button(label='Отправить')
+	    st.subheader('Пожалуйста подождите до 5 минут в зависимости от сложности запроса')
 
 
         if submit_button and user_input:
-		st.caption('Пожалуйста подождите до 5 минут в зависимости от сложности запроса')
             if not openai_api_key:
                 st.error("Please provide the missing API keys in Settings.")
             else:
                 try:
                     with st.spinner('Please wait...'):
-            
                         response = json.loads(create_plan_by_youtube(user_input))
                         st.session_state['youtube-plan']['past'].append(user_input)
                         st.session_state['youtube-plan']['generated'].append(response)
