@@ -277,6 +277,7 @@ with container:
 
 
         if submit_button and user_input:
+		st.caption('Пожалуйста подождите до 5 минут в зависимости от сложности запроса')
             if not openai_api_key:
                 st.error("Please provide the missing API keys in Settings.")
             else:
