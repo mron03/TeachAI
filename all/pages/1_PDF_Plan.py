@@ -246,9 +246,10 @@ container = st.container()
 with container:
     if user_nickname:
         submit_button = st.button(label='Создать')
+        st.subheader('Пожалуйста подождите от 2 до 5 минут в зависимости от размера документа.')
+
 
         if submit_button:
-            st.caption('Пожалуйста подождите от 2 до 5 минут в зависимости от размера документа.')
             if not openai_api_key:
                 st.error("Please provide the missing API keys in Settings.")
             elif not source_doc:
