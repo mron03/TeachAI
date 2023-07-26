@@ -8,18 +8,9 @@ import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi
 from deep_translator import GoogleTranslator
 
-import os
-import PyPDF2
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from io import BytesIO
-
-
-from langchain import LLMChain
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.docstore.document import Document
+from langchain import LLMChain, OpenAI
 from langchain.document_loaders import YoutubeLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -27,6 +18,7 @@ from langchain.callbacks import get_openai_callback
 from langchain.vectorstores import Chroma
 from langchain.chat_models import ChatOpenAI
 from langchain.chains.summarize import load_summarize_chain
+from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
@@ -81,48 +73,6 @@ load_dotenv()
 youtube_api_key = os.getenv('YOUTUBE_API_KEY')
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-def generate_pdf(text):
-    buffer = BytesIO()
-
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    styles = getSampleStyleSheet()
-
-    # Register the "DejaVuSans" font, which supports Cyrillic characters
-    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
-
-    # Create a custom style for your text using the "DejaVuSans" font
-    custom_style = ParagraphStyle(
-        'CustomStyle',
-        parent=styles['Normal'],
-        fontName='DejaVuSans',
-        fontSize=12,
-        textColor=colors.black,
-        spaceAfter=12,
-    )
-
-    story = []
-
-    # Add your generated text to the story
-    for paragraph in text.split('\n'):
-        p = Paragraph(paragraph, custom_style)
-        story.append(p)
-
-    doc.build(story)
-    buffer.seek(0)
-
-    return buffer
-
-def read_pdf_content(file_path):
-    with open(file_path, 'rb') as file:
-        pdf_reader = PyPDF2.PdfReader(file)
-        num_pages = len(pdf_reader.pages)
-
-        pdf_text = []
-        for page_num in range(num_pages):
-            page = pdf_reader.pages[page_num]
-            pdf_text.append(page.extract_text())
-
-    return pdf_text
 
 def create_tables(cursor):
     commands = [
@@ -212,11 +162,11 @@ def create_plan_by_youtube(prompt, student_category, student_level, yt_urls):
         for doc in docs:
             r = chain.run(question='create a teaching scenario', query='create a teaching scenario', prev_responses_summary=prev_responses_summary, student_category = student_category, student_level = student_level, materials=doc.page_content)
             responses.append(r)
-            # print(r)
+            
             inp = text_splitter.create_documents(responses)
             prev_responses_summary = summarization_chain.run(inp)
-            # print('SUMMARIEssssssssssssssssssssssssssssS', prev_responses_summary)
-            # print(cb)
+            print('SUMMARIEssssssssssssssssssssssssssssS', prev_responses_summary)
+            print(cb)
 
     return responses, videos
      
@@ -235,7 +185,7 @@ def split_into_docs(video_ids):
     for id in video_ids:
         transcript_list = YouTubeTranscriptApi.list_transcripts(id)
         transcript = transcript_list.find_transcript(['en', 'ru'])
-        # print(transcript.fetch())
+        print(transcript.fetch())
         translated_transcript = transcript.translate('en')
         translated_transcript_fetched = translated_transcript.fetch()
 
@@ -248,9 +198,9 @@ def split_into_docs(video_ids):
 
         for t in final_transcript:
             res = res + t['text'] + '\n'
-        # print(videos)
-        # print(res)
-        # print('TEXTTTTTTTTTTTTTTT', res)
+        print(videos)
+        print(res)
+        print('TEXTTTTTTTTTTTTTTT', res)
     
         num_of_tokens = llm.get_num_tokens(res)
         
@@ -265,10 +215,10 @@ def split_into_docs(video_ids):
          
 
     
-    # for d in docs:
-    #     print('DOCUMENTS:')
-    #     print(d.page_content)
-    #     print()
+    for d in docs:
+        print('DOCUMENTS:')
+        print(d.page_content)
+        print()
     return docs, videos
 
 
@@ -311,46 +261,42 @@ def get_youtube_videos(prompt):
 
 
 def print_generated_plans_and_store_in_db():
-    
-    for i in range(len(st.session_state['youtube-plan']['generated'])):
+    with st.expander('Результат'):
+        for i in range(1, len(st.session_state['youtube-plan']['generated'])):
 
-        response_for_history = ''
+                response_for_history = ''
 
-        # for response in st.session_state['youtube-plan']['generated'][i]:
-        #     print(response)
-        #     print(type(response))
 
-        for response in st.session_state['youtube-plan']['generated'][i]:
 
-            for topic, value in response.items():
-                st.subheader(topic)
-                response_for_history += topic
-                response_for_history += '\n'
+                for response in st.session_state['youtube-plan']['generated'][i]:
+                    print(response)
+                    print(type(response))
+
+                for response in st.session_state['youtube-plan']['generated'][i]:
+
+                    for topic, value in response.items():
+                        st.subheader(topic)
+                        response_for_history += topic
+                        response_for_history += '\n'
+                            
+                        for inst_speech, content in value.items():
+                            st.write(f'{inst_speech} : {content}')
+                            
+                            response_for_history += f'{inst_speech} : {content}'
+                            response_for_history += '\n'
+                        
+                        st.divider()
+                        response_for_history += '\n'
                     
-                for inst_speech, content in value.items():
-                    st.write(f'{inst_speech} : {content}')
-                    
-                    response_for_history += f'{inst_speech} : {content}'
-                    response_for_history += '\n'
-                
-                st.divider()
-                response_for_history += '\n'
-            
 
-            try:
-                command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
-                cursor.execute(command, (user_nickname, user_input, response_for_history,))
-                connection.commit()
+                    try:
+                        command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
+                        cursor.execute(command, (user_nickname, user_input, response_for_history,))
+                        connection.commit()
 
-            except (Exception, psycopg2.Error) as error:
-                print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                connection.rollback()
-                
-    if response_for_history:    
-        pdf_file = generate_pdf(response_for_history)
-        return pdf_file
-
-    return None
+                    except (Exception, psycopg2.Error) as error:
+                        print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                        connection.rollback()
 
 
 
@@ -402,8 +348,6 @@ if user_nickname:
                     final_responses = []
                     for response in responses:
                         final_responses.append(json.loads(response))
-                    
-                    # print('FINALLLLLLLLLLLLLLLLLLLLLLLLLLLLLL', final_responses)
 
                     st.session_state['youtube-plan']['generated'].append(final_responses)
 
@@ -412,20 +356,11 @@ if user_nickname:
 
 
 
-    clear_button = st.button("Очистить", key="clear")
+    clear_button = st.button("Очистить историю", key="clear")
 
     st.write('#')
 
-    if st.session_state['youtube-plan']:
-        with st.expander('Результат'):
-            pdf_file = print_generated_plans_and_store_in_db()
-
-            if pdf_file:
-                st.download_button('Скачать', pdf_file) 
-
-            
-
-    with st.expander("Отзыв"):
+    with st.expander("Форма для отзыва"):
 
         rating = st.slider('Оцените сервис от 0 до 10', 0, 10, 5)
         
@@ -451,6 +386,9 @@ if user_nickname:
 
     if clear_button:
         clear_history()
+
+if st.session_state['youtube-plan']:
+    print_generated_plans_and_store_in_db()
 
 cursor.close()
 connection.close()
