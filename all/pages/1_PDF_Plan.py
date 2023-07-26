@@ -327,11 +327,11 @@ if user_nickname:
     if clear_button:
         clear_history()
 
-if st.session_state['pdf-plan']:
-    with st.expander('Результат'):
-        pdf_file = print_generated_plans_and_store_in_db()
-        if pdf_file:
-            st.download_button('Скачать', pdf_file) 
+    if st.session_state['pdf-plan']:
+        with st.expander('Результат'):
+            pdf_file = print_generated_plans_and_store_in_db()
+            if pdf_file:
+                st.download_button('Скачать', pdf_file) 
 
 with st.expander("Отзыв"):
         rating = st.slider('Оцените сервис от 0 до 10', 0, 10, 5)
