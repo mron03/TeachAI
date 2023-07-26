@@ -345,7 +345,7 @@ def print_generated_plans_and_store_in_db():
             except (Exception, psycopg2.Error) as error:
                 print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
                 connection.rollback()
-    if response_for_history:    
+    if len(response_for_history) != 0:    
         pdf_file = generate_pdf(response_for_history)
         return pdf_file
 
