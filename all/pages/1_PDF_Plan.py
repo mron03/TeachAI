@@ -13,7 +13,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 
 import streamlit as st
-from streamlit_chat import message
+
 
 from langchain import LLMChain
 from langchain.document_loaders import PyPDFLoader

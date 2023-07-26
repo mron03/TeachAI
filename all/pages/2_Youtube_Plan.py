@@ -18,9 +18,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.docstore.document import Document
-from langchain import LLMChain, OpenAI
+
+from langchain import LLMChain
 from langchain.document_loaders import YoutubeLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -28,7 +27,6 @@ from langchain.callbacks import get_openai_callback
 from langchain.vectorstores import Chroma
 from langchain.chat_models import ChatOpenAI
 from langchain.chains.summarize import load_summarize_chain
-from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
