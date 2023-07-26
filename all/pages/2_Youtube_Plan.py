@@ -48,20 +48,22 @@ body_template = '''
 
     DO NOT RETURN YOUR ANSWER TWICE, KEEP THE ANSWER UNIQUE WITHOUT DUPLICATES
 
-    Return the answer in russian language
+    Return the answer strictly like this JSON format:
 
-    Return the answer in VALID JSON format that could be converted from string to dictionary using json.loads():
-        {{
-            "Write the topic name" : {{
-                "Instruction 1" : "Write What to do",
-                "Speech 1": "Write what to tell for instruction 1",
-                "Instruction 2" : "Write What to do",
-                "Speech 2": "Write what to tell for instruction 2",
-                "Instruction 3" : "Write What to do",
-                "Speech 3": "Write what to tell for instruction 3",
-                "Instruction N": "...",
-                "Speech N": "..."
-            }}
+        "Write the topic or subtopic name or something that makes sense" : {{ 
+
+            "Instruction 1" : "Write What to do"
+            "Speech 1": 
+                "Write what to tell for instruction 1"
+            
+            "Instruction 2" : Write What to do 
+            "Speech 2": 
+                "Write what to tell for instruction 2"
+
+            "Instruction 3" : Write What to do 
+            "Speech 3": 
+                "Write what to tell for instruction 3"
+
         }}
     
     Example of idiomatic JSON response: {{"Integrals":{{"Instruction 1":"Introduce topic of integrals","Speech 1":"Today, we are going to learn integrals","Instruction 2":"Show examples and problems","Speech 2":"Here is the problem we are going to solve","Instruction 3":"Conclude the topic","Speech 3":"In conclusion, integrals are very useful"}}}}
@@ -96,7 +98,7 @@ def create_tables(cursor):
     try:
         for command in commands:
             cursor.execute(command)
-            # connection.commit()
+            connection.commit()
     except (Exception, psycopg2.Error) as error:
         print("Problem with SQL:", error)
 
@@ -289,12 +291,12 @@ def print_generated_plans_and_store_in_db():
 
                     try:
                         command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
-                        # cursor.execute(command, (user_nickname, user_input, response_for_history,))
-                        # connection.commit()
+                        cursor.execute(command, (user_nickname, user_input, response_for_history,))
+                        connection.commit()
 
                     except (Exception, psycopg2.Error) as error:
                         print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                        # connection.rollback()
+                        connection.rollback()
 
 
 
@@ -304,13 +306,13 @@ if 'youtube-plan' not in st.session_state:
     }
 
 
-# connection = establish_database_connection()
-# cursor = connection.cursor()
+connection = establish_database_connection()
+cursor = connection.cursor()
 
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 if user_nickname:
-    # create_tables(cursor)
+    create_tables(cursor)
 
     st.subheader('Создай план используя ютуб')
     yt_urls = st_tags(
@@ -318,9 +320,6 @@ if user_nickname:
         text='Нажмите Enter чтоб добавить',
     )
 
-
-
-if user_nickname:
 
     student_category = st.selectbox(
         'Кому предназначен урок?',
@@ -376,12 +375,12 @@ if user_nickname:
 
             try:
                 command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
-                # cursor.execute(command, (user_nickname, rating, feedback_input, email))
-                # connection.commit()
+                cursor.execute(command, (user_nickname, rating, feedback_input, email))
+                connection.commit()
 
             except (Exception, psycopg2.Error) as error:
                 print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                # connection.rollback()
+                connection.rollback()
 
             st.success("Feedback submitted successfully!")
 
@@ -389,8 +388,7 @@ if user_nickname:
         clear_history()
 
 if st.session_state['youtube-plan']:
-
     print_generated_plans_and_store_in_db()
 
-# cursor.close()
-# connection.close()
+cursor.close()
+connection.close()

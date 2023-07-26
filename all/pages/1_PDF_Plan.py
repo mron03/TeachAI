@@ -25,10 +25,11 @@ body_plan_template = '''
 
     You have to provide examples or problems with solutions if needed for topic explanation
 
-    Optimize the scenario strictly based on these filter:
-        Student Category : ```{student_category}```
-        Student Level : ```{student_level}```
-        Custom Filter : ```{custom_filter}``` 
+    You are a teacher, You need to create a teaching scenario for {student_category}
+
+    You are aware that your student knowledge is at {student_level} level, so you adapt the materials to them
+
+    You need to follow this command {custom_filter}
 
     You need to use the following data to create plan:
         ```{materials}```
@@ -89,7 +90,7 @@ def create_tables(cursor):
     try:
         for command in commands:
             cursor.execute(command)
-            # connection.commit()
+            connection.commit()
     except (Exception, psycopg2.Error) as error:
         print("Problem with SQL:", error)
 
@@ -115,7 +116,7 @@ def establish_database_connection():
 
 
 def get_response(user_input, pages, student_category, student_level, custom_filter):
-    llm=ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0, verbose=True)
+    llm=ChatOpenAI(model_name='gpt-3.5-turbo-16k', temperature=0.4, verbose=True)
 
     system_prompt = SystemMessagePromptTemplate.from_template(body_plan_template)
 
@@ -144,17 +145,17 @@ def clear_history():
 def handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email):
     try:
         command = 'INSERT INTO feedback_pdf (user_id, rating, pdf_file, text, email) VALUES(%s, %s, %s, %s, %s)' 
-        # cursor.execute(command, (user_nickname, rating, psycopg2.Binary(pdf_content), feedback_input, email))
-        # connection.commit()
+        cursor.execute(command, (user_nickname, rating, psycopg2.Binary(pdf_content), feedback_input, email))
+        connection.commit()
         st.success("Feedback submitted successfully!")
     except (Exception, psycopg2.Error) as error:
         print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-        # connection.rollback()
+        connection.rollback()
 
 
 def handle_plan_creation(source_doc, student_category, student_level, custom_filter):
     try:
-        with st.spinner('Please wait...'):
+        with st.spinner('Пожалуйста подождите от 2 до 5 минут в зависимости от размера документа.'):
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
                 tmp_file.write(source_doc.read())
             loader = PyPDFLoader(tmp_file.name)
@@ -209,11 +210,11 @@ def print_generated_plans_and_store_in_db():
 
         try:
             command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
-            # cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
-            # connection.commit()
+            cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
+            connection.commit()
         except (Exception, psycopg2.Error) as error:
             print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-            # connection.rollback()
+            connection.rollback()
 
 
 
@@ -222,14 +223,14 @@ if 'pdf-plan' not in st.session_state:
         'generated' : [],
     }
 
-# connection = establish_database_connection()
-# cursor = connection.cursor()
+connection = establish_database_connection()
+cursor = connection.cursor()
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 
 
 if user_nickname:
-    # create_tables(cursor)
+    create_tables(cursor)
 
     student_category = st.selectbox(
         'Кому предназначен урок?',
@@ -251,52 +252,48 @@ if user_nickname:
 
     source_doc = st.file_uploader("Загружай свой файл PDF", type="pdf")
 
-response_container = st.container()
-container = st.container()
 
-with container:
-    if user_nickname:
-        submit_button = st.button(label='Создать')
 
-        if submit_button:
-            if not openai_api_key:
-                st.error("Please provide the missing API keys in Settings.")
-            elif not source_doc:
-                st.error("Please provide the lecture document.")
-            else:
-                handle_plan_creation(source_doc, student_category_translated, student_level_translated, custom_filter_translated)
+    submit_button = st.button(label='Создать')
 
-        clear_button = st.button("Очистить Историю", key="clear")
+    if submit_button:
+        if not openai_api_key:
+            st.error("Please provide the missing API keys in Settings.")
+        elif not source_doc:
+            st.error("Please provide the lecture document.")
+        else:
+            handle_plan_creation(source_doc, student_category_translated, student_level_translated, custom_filter_translated)
 
-        st.write("##")
-    
-        with st.expander("Форма для отзыва"):
-            rating = st.slider('Оцените сервис от 0 до 10', 0, 10, 5)
+    clear_button = st.button("Очистить Историю", key="clear")
 
-            bad_pdf = st.file_uploader("Загрузите PDF который не заработал или вывел плохой результат", type="pdf")
-            if bad_pdf:
-                pdf_content = bad_pdf.read()
+    st.write("#")
 
-            email = st.text_input("ЭЛЕКТРОННАЯ ПОЧТА ДЛЯ ПОЛУЧЕНИЯ ССЫЛКУ НА ФИНАЛЬНЫЙ ПРОДУКТ 👇")
+    with st.expander("Форма для отзыва"):
+        rating = st.slider('Оцените сервис от 0 до 10', 0, 10, 5)
 
-            
-            with st.form(key='feedback_form', clear_on_submit=True):
-                feedback_input = st.text_area("Что думаете о сервисе? Какие советы или предложения рекомендуете?", key='feedback_input')
-                submit_button = st.form_submit_button(label='Отправить')
+        bad_pdf = st.file_uploader("Загрузите PDF который не заработал или вывел плохой результат", type="pdf")
+        if bad_pdf:
+            pdf_content = bad_pdf.read()
 
-            if submit_button and feedback_input:
+        email = st.text_input("ЭЛЕКТРОННАЯ ПОЧТА ДЛЯ ПОЛУЧЕНИЯ ССЫЛКУ НА ФИНАЛЬНЫЙ ПРОДУКТ 👇")
 
-                handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email)
+        
+        with st.form(key='feedback_form', clear_on_submit=True):
+            feedback_input = st.text_area("Что думаете о сервисе? Какие советы или предложения рекомендуете?", key='feedback_input')
+            submit_button = st.form_submit_button(label='Отправить')
 
-                st.success("Feedback submitted successfully!")
-    
+        if submit_button and feedback_input:
 
-        if clear_button:
-            clear_history()
+            handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email)
+
+            st.success("Feedback submitted successfully!")
+
+
+    if clear_button:
+        clear_history()
 
 if st.session_state['pdf-plan']:
-    with response_container:
-        print_generated_plans_and_store_in_db()
+    print_generated_plans_and_store_in_db()
 
-# cursor.close()
-# connection.close()
+cursor.close()
+connection.close()
