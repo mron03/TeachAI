@@ -13,7 +13,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 
 import streamlit as st
-
+from streamlit_chat import message
 
 from langchain import LLMChain
 from langchain.document_loaders import PyPDFLoader
@@ -234,6 +234,7 @@ def handle_plan_creation(source_doc, student_category, student_level, custom_fil
 
 
 def print_generated_plans_and_store_in_db():
+    pdf_for_history = source_doc.read()
     
     for i in range(len(st.session_state['pdf-plan']['generated'])):
 
@@ -266,11 +267,11 @@ def print_generated_plans_and_store_in_db():
         except (Exception, psycopg2.Error) as error:
             print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
             connection.rollback()
-            
+    
     if response_for_history:
         pdf_file = generate_pdf(response_for_history)
         return pdf_file
-
+    
     return None
 
 
