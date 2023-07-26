@@ -234,7 +234,6 @@ def handle_plan_creation(source_doc, student_category, student_level, custom_fil
 
 
 def print_generated_plans_and_store_in_db():
-    pdf_for_history = source_doc.read()
     
     for i in range(len(st.session_state['pdf-plan']['generated'])):
 
@@ -260,13 +259,15 @@ def print_generated_plans_and_store_in_db():
                 st.write()
                 response_for_history += '\n'
 
-        try:
-            command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
-            cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
-            connection.commit()
-        except (Exception, psycopg2.Error) as error:
-            print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-            connection.rollback()
+        if source_doc:
+            pdf_for_history = source_doc.read()
+            try:
+                command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
+                cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
+                connection.commit()
+            except (Exception, psycopg2.Error) as error:
+                print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                connection.rollback()
     
     if response_for_history:
         pdf_file = generate_pdf(response_for_history)
