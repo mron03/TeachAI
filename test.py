@@ -1,34 +1,32 @@
-import psycopg2
+import json
 
-# Database connection details
-host = "34.116.206.232"
-database = "postgres"
-user = "postgres"
-password = "postgres"
+a = '''
+    {
+        "Write the topic name": {
+            "Instruction 1": "Write What to do",
+            "Speech 1": "Write what to tell for instruction 1",
+            "Instruction 2": "Write What to do",
+            "Speech 2": "Write what to tell for instruction 2",
+            "Instruction 3": "Write What to do",
+            "Speech 3": "Write what to tell for instruction 3"
+        }
+    }
+'''
+b = json.loads(a)
+print(b)
+a = [b]
 
-try:
-    connection = psycopg2.connect(
-        host=host,
-        port="5432",
-        database=database,
-        user=user,
-        password=password  
-    )
-    print("Successfully connected to the PostgreSQL database!")
-except (Exception, psycopg2.Error) as error:
-    print("Error while connecting to PostgreSQL:", error)
+for i in range(len(a)):
 
-# Create a cursor object to interact with the database
-cursor = connection.cursor()
+    for response in a:
+        print(response)
+        
+        for topic, value in response.items():
+            print(topic)
+                
+            for inst_speech, content in value.items():
+                print(f'{inst_speech} : {content}')
+                print()
 
-# Example query execution
-cursor.execute("SELECT * FROM your_table")
-results = cursor.fetchall()
-
-# Process the query results
-for row in results:
-    print(row)
-
-# Close the cursor and connection
-cursor.close()
-connection.close()
+            
+            print()

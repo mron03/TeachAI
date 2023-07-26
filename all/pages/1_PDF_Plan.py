@@ -1,4 +1,5 @@
 import json, os, tempfile, psycopg2
+from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
 
@@ -20,35 +21,35 @@ from langchain.prompts.chat import (
 human_template = '''Complete the following request: {query}'''
 
 body_plan_template = '''
-    You are a teacher who wants to create a very detailed teaching plan with full explanation of every concept to his loving student
+    You are a teacher who wants to create a very detailed teaching plan with full explanation
 
     You have to provide examples or problems with solutions if needed for topic explanation
 
-    You have to return the answer in JSON FORMAT
+    Optimize the scenario strictly based on these filter:
+        Student Category : ```{student_category}```
+        Student Level : ```{student_level}```
+        Custom Filter : ```{custom_filter}``` 
 
     You need to use the following data to create plan:
-        "materials": 
-            {materials}
+        ```{materials}```
     
-    DO NOT RETURN YOUR ANSWER TWICE, KEEP THE ANSWER UNIQUE WITHOUT DUPLICATES
+    Return the answer in russian language
 
-    Return the answer strictly like this JSON format::
-        "Write the topic or subtopic name or something that makes sense" : {{ 
-
-            "Instruction 1" : "Write What to do"
-            "Speech 1": 
-                "Write what to tell for instruction 1"
-            
-            "Instruction 2" : Write What to do 
-            "Speech 2": 
-                "Write what to tell for instruction 2"
-
-            "Instruction 3" : Write What to do 
-            "Speech 3": 
-                "Write what to tell for instruction 3"
-
+    Return the answer in VALID JSON format that could be converted from string to dictionary using json.loads():
+        {{
+            "Write the topic name" : {{
+                "Instruction 1" : "Write What to do",
+                "Speech 1": "Write what to tell for instruction 1",
+                "Instruction 2" : "Write What to do",
+                "Speech 2": "Write what to tell for instruction 2",
+                "Instruction 3" : "Write What to do",
+                "Speech 3": "Write what to tell for instruction 3",
+                "Instruction N": "...",
+                "Speech N": "..."
+            }}
         }}
-    RETURN THE ANSWER IN JSON FORMAT
+    
+    Example of idiomatic JSON response: {{"Integrals":{{"Instruction 1":"Introduce topic of integrals","Speech 1":"Today, we are going to learn integrals","Instruction 2":"Show examples and problems","Speech 2":"Here is the problem we are going to solve","Instruction 3":"Conclude the topic","Speech 3":"In conclusion, integrals are very useful"}}}}
 '''
 
 load_dotenv()
@@ -88,7 +89,7 @@ def create_tables(cursor):
     try:
         for command in commands:
             cursor.execute(command)
-            connection.commit()
+            # connection.commit()
     except (Exception, psycopg2.Error) as error:
         print("Problem with SQL:", error)
 
@@ -113,8 +114,8 @@ def establish_database_connection():
         return None
 
 
-def get_response(user_input, pages):
-    llm=ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
+def get_response(user_input, pages, student_category, student_level, custom_filter):
+    llm=ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0, verbose=True)
 
     system_prompt = SystemMessagePromptTemplate.from_template(body_plan_template)
 
@@ -130,31 +131,28 @@ def get_response(user_input, pages):
 
     # search = vectordb.similarity_search(user_input)
     with get_openai_callback() as cb:
-        response = chain.run(query=user_input, materials=pages)
+        response = chain.run(query=user_input, materials=pages, student_category=student_category, student_level=student_level, custom_filter=custom_filter)
         print(cb)
 
     return response
 
 def clear_history():
     st.session_state['pdf-plan']['generated'] = []
-    st.session_state['pdf-plan']['past'] = []
-    st.session_state['pdf-plan']['messages'] = [
-        {"role": "system", "content": "You are a teacher who wants to create a teaching plan."}
-    ]
+
 
 
 def handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email):
     try:
         command = 'INSERT INTO feedback_pdf (user_id, rating, pdf_file, text, email) VALUES(%s, %s, %s, %s, %s)' 
-        cursor.execute(command, (user_nickname, rating, psycopg2.Binary(pdf_content), feedback_input, email))
-        connection.commit()
+        # cursor.execute(command, (user_nickname, rating, psycopg2.Binary(pdf_content), feedback_input, email))
+        # connection.commit()
         st.success("Feedback submitted successfully!")
     except (Exception, psycopg2.Error) as error:
         print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-        connection.rollback()
+        # connection.rollback()
 
 
-def handle_plan_creation(source_doc):
+def handle_plan_creation(source_doc, student_category, student_level, custom_filter):
     try:
         with st.spinner('Please wait...'):
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
@@ -167,15 +165,17 @@ def handle_plan_creation(source_doc):
             responses = []
             size = len(pages) if len(pages) <= 10 else 10
 
+            text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=2000, chunk_overlap=200)
+
             for i in range(size):
-                temp = pages[i].page_content
-                response = get_response('Create plan', temp)
+                temp = text_splitter.split_text(pages[i].page_content)
+                response = get_response('Create plan', temp, student_category, student_level, custom_filter)
+                print(response)
                 response = json.loads(response)
                 responses.append(response)
 
             response =  responses
 
-            st.session_state['pdf-plan']['past'].append('Create')
             st.session_state['pdf-plan']['generated'].append(response)
     except Exception as e:
         st.exception(f"An error occurred: {e}")
@@ -183,7 +183,6 @@ def handle_plan_creation(source_doc):
 
 def print_generated_plans_and_store_in_db():
     for i in range(len(st.session_state['pdf-plan']['generated'])):
-        message(st.session_state['pdf-plan']["past"][i], is_user=True, key=str(i) + '_user', avatar_style='no-avatar')
 
         response_for_history = ''
         pdf_for_history = source_doc.read()
@@ -210,31 +209,43 @@ def print_generated_plans_and_store_in_db():
 
         try:
             command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
-            cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
-            connection.commit()
+            # cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
+            # connection.commit()
         except (Exception, psycopg2.Error) as error:
             print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-            connection.rollback()
+            # connection.rollback()
 
 
 
 if 'pdf-plan' not in st.session_state:
     st.session_state['pdf-plan'] = {
         'generated' : [],
-        'past' : [],
-        'messages' : [
-            {"role": "system", "content": "You are a teacher who wants to create a teaching plan."}
-        ]
     }
 
-connection = establish_database_connection()
-cursor = connection.cursor()
+# connection = establish_database_connection()
+# cursor = connection.cursor()
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 
 
 if user_nickname:
-    create_tables(cursor)
+    # create_tables(cursor)
+
+    student_category = st.selectbox(
+        'Кому предназначен урок?',
+        ('Дети', 'Школьники', 'Cтуденты', 'Взрослые', 'Престарелые')
+    )
+    student_level = st.selectbox(
+        'Какой уровень у ученика?',
+        ('Нулевый', 'Начинающий', 'Средний', 'Высокий')
+    )
+
+    custom_filter = st.text_input("Введите что то еще если есть:")
+
+    student_category_translated = GoogleTranslator(source='auto', target='ru').translate(student_category)
+    student_level_translated = GoogleTranslator(source='auto', target='ru').translate(student_level)
+    custom_filter_translated = GoogleTranslator(source='auto', target='ru').translate(custom_filter)
+
 
     st.subheader('Создай сценарии из PDF файла')
 
@@ -253,7 +264,7 @@ with container:
             elif not source_doc:
                 st.error("Please provide the lecture document.")
             else:
-                handle_plan_creation(source_doc)
+                handle_plan_creation(source_doc, student_category_translated, student_level_translated, custom_filter_translated)
 
         clear_button = st.button("Очистить Историю", key="clear")
 
@@ -287,5 +298,5 @@ if st.session_state['pdf-plan']:
     with response_container:
         print_generated_plans_and_store_in_db()
 
-cursor.close()
-connection.close()
+# cursor.close()
+# connection.close()
