@@ -8,6 +8,16 @@ import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi
 from deep_translator import GoogleTranslator
 
+import os
+import PyPDF2
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
+
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.docstore.document import Document
 from langchain import LLMChain, OpenAI
@@ -73,6 +83,48 @@ load_dotenv()
 youtube_api_key = os.getenv('YOUTUBE_API_KEY')
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+def generate_pdf(text):
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+
+    # Register the "DejaVuSans" font, which supports Cyrillic characters
+    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+
+    # Create a custom style for your text using the "DejaVuSans" font
+    custom_style = ParagraphStyle(
+        'CustomStyle',
+        parent=styles['Normal'],
+        fontName='DejaVuSans',
+        fontSize=12,
+        textColor=colors.black,
+        spaceAfter=12,
+    )
+
+    story = []
+
+    # Add your generated text to the story
+    for paragraph in text.split('\n'):
+        p = Paragraph(paragraph, custom_style)
+        story.append(p)
+
+    doc.build(story)
+    buffer.seek(0)
+
+    return buffer
+
+def read_pdf_content(file_path):
+    with open(file_path, 'rb') as file:
+        pdf_reader = PyPDF2.PdfReader(file)
+        num_pages = len(pdf_reader.pages)
+
+        pdf_text = []
+        for page_num in range(num_pages):
+            page = pdf_reader.pages[page_num]
+            pdf_text.append(page.extract_text())
+
+    return pdf_text
 
 def create_tables(cursor):
     commands = [
@@ -261,40 +313,43 @@ def get_youtube_videos(prompt):
 
 
 def print_generated_plans_and_store_in_db():
-    with st.expander('Результат'):
-        for i in range(len(st.session_state['youtube-plan']['generated'])):
+    
+    for i in range(len(st.session_state['youtube-plan']['generated'])):
 
-                response_for_history = ''
+        response_for_history = ''
 
-                # for response in st.session_state['youtube-plan']['generated'][i]:
-                #     print(response)
-                #     print(type(response))
+        # for response in st.session_state['youtube-plan']['generated'][i]:
+        #     print(response)
+        #     print(type(response))
 
-                for response in st.session_state['youtube-plan']['generated'][i]:
+        for response in st.session_state['youtube-plan']['generated'][i]:
 
-                    for topic, value in response.items():
-                        st.subheader(topic)
-                        response_for_history += topic
-                        response_for_history += '\n'
-                            
-                        for inst_speech, content in value.items():
-                            st.write(f'{inst_speech} : {content}')
-                            
-                            response_for_history += f'{inst_speech} : {content}'
-                            response_for_history += '\n'
-                        
-                        st.divider()
-                        response_for_history += '\n'
+            for topic, value in response.items():
+                st.subheader(topic)
+                response_for_history += topic
+                response_for_history += '\n'
                     
+                for inst_speech, content in value.items():
+                    st.write(f'{inst_speech} : {content}')
+                    
+                    response_for_history += f'{inst_speech} : {content}'
+                    response_for_history += '\n'
+                
+                st.divider()
+                response_for_history += '\n'
+            
 
-                    # try:
-                    #     command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
-                    #     cursor.execute(command, (user_nickname, user_input, response_for_history,))
-                    #     connection.commit()
+            try:
+                command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
+                cursor.execute(command, (user_nickname, user_input, response_for_history,))
+                connection.commit()
 
-                    # except (Exception, psycopg2.Error) as error:
-                    #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                    #     connection.rollback()
+            except (Exception, psycopg2.Error) as error:
+                print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                connection.rollback()
+            
+    pdf_file = generate_pdf(response_for_history)
+    return pdf_file
 
 
 
@@ -304,13 +359,13 @@ if 'youtube-plan' not in st.session_state:
     }
 
 
-# connection = establish_database_connection()
-# cursor = connection.cursor()
+connection = establish_database_connection()
+cursor = connection.cursor()
 
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 if user_nickname:
-    # create_tables(cursor)
+    create_tables(cursor)
 
     st.subheader('Создай план используя ютуб')
     yt_urls = st_tags(
@@ -356,14 +411,20 @@ if user_nickname:
 
 
 
-    clear_button = st.button("Очистить историю", key="clear")
+    clear_button = st.button("Очистить", key="clear")
 
     st.write('#')
 
     if st.session_state['youtube-plan']:
-        print_generated_plans_and_store_in_db()
+        with st.expander('Результат'):
+            pdf_file = print_generated_plans_and_store_in_db()
 
-    with st.expander("Форма для отзыва"):
+            if pdf_file:
+                st.download_button('Скачать', pdf_file) 
+
+            
+
+    with st.expander("Отзыв"):
 
         rating = st.slider('Оцените сервис от 0 до 10', 0, 10, 5)
         
@@ -374,21 +435,21 @@ if user_nickname:
             submit_button = st.form_submit_button(label='Отправить')
             
 
-        # if submit_button and feedback_input:
+        if submit_button and feedback_input:
 
-        #     try:
-        #         command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
-        #         cursor.execute(command, (user_nickname, rating, feedback_input, email))
-        #         connection.commit()
+            try:
+                command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
+                cursor.execute(command, (user_nickname, rating, feedback_input, email))
+                connection.commit()
 
-        #     except (Exception, psycopg2.Error) as error:
-        #         print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-        #         connection.rollback()
+            except (Exception, psycopg2.Error) as error:
+                print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                connection.rollback()
 
-        #     st.success("Feedback submitted successfully!")
+            st.success("Feedback submitted successfully!")
 
     if clear_button:
         clear_history()
 
-# cursor.close()
-# connection.close()
+cursor.close()
+connection.close()

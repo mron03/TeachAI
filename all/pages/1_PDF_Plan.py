@@ -2,6 +2,15 @@ import json, os, tempfile, psycopg2
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
+import os
+import PyPDF2
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
 
 import streamlit as st
 from streamlit_chat import message
@@ -64,6 +73,48 @@ def print_table_rows(table, cursor):
     for row in rows:
         print(row)
 
+def generate_pdf(text):
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+
+    # Register the "DejaVuSans" font, which supports Cyrillic characters
+    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+
+    # Create a custom style for your text using the "DejaVuSans" font
+    custom_style = ParagraphStyle(
+        'CustomStyle',
+        parent=styles['Normal'],
+        fontName='DejaVuSans',
+        fontSize=12,
+        textColor=colors.black,
+        spaceAfter=12,
+    )
+
+    story = []
+
+    # Add your generated text to the story
+    for paragraph in text.split('\n'):
+        p = Paragraph(paragraph, custom_style)
+        story.append(p)
+
+    doc.build(story)
+    buffer.seek(0)
+
+    return buffer
+
+def read_pdf_content(file_path):
+    with open(file_path, 'rb') as file:
+        pdf_reader = PyPDF2.PdfReader(file)
+        num_pages = len(pdf_reader.pages)
+
+        pdf_text = []
+        for page_num in range(num_pages):
+            page = pdf_reader.pages[page_num]
+            pdf_text.append(page.extract_text())
+
+    return pdf_text
 
 def create_tables(cursor):
     commands = [
@@ -183,10 +234,10 @@ def handle_plan_creation(source_doc, student_category, student_level, custom_fil
 
 
 def print_generated_plans_and_store_in_db():
+    
     for i in range(len(st.session_state['pdf-plan']['generated'])):
 
         response_for_history = ''
-        pdf_for_history = source_doc.read()
         j = 1
         for item in st.session_state['pdf-plan']['generated'][i]:
             st.header(f'Page {j}')
@@ -215,6 +266,9 @@ def print_generated_plans_and_store_in_db():
         except (Exception, psycopg2.Error) as error:
             print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
             connection.rollback()
+        
+    pdf_file = generate_pdf(response_for_history)
+    return pdf_file
 
 
 
@@ -252,8 +306,6 @@ if user_nickname:
 
     source_doc = st.file_uploader("Загружай свой файл PDF", type="pdf")
 
-
-
     submit_button = st.button(label='Создать')
 
     if submit_button:
@@ -264,11 +316,20 @@ if user_nickname:
         else:
             handle_plan_creation(source_doc, student_category_translated, student_level_translated, custom_filter_translated)
 
-    clear_button = st.button("Очистить Историю", key="clear")
+    clear_button = st.button("Очистить", key="clear")
 
     st.write("#")
 
-    with st.expander("Форма для отзыва"):
+    if clear_button:
+        clear_history()
+
+if st.session_state['pdf-plan']:
+    with st.expander('Результат'):
+        pdf_file = print_generated_plans_and_store_in_db()
+        if pdf_file:
+            st.download_button('Скачать', pdf_file) 
+
+with st.expander("Отзыв"):
         rating = st.slider('Оцените сервис от 0 до 10', 0, 10, 5)
 
         bad_pdf = st.file_uploader("Загрузите PDF который не заработал или вывел плохой результат", type="pdf")
@@ -287,13 +348,6 @@ if user_nickname:
             handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email)
 
             st.success("Feedback submitted successfully!")
-
-
-    if clear_button:
-        clear_history()
-
-if st.session_state['pdf-plan']:
-    print_generated_plans_and_store_in_db()
 
 cursor.close()
 connection.close()
