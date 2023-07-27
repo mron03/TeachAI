@@ -1,11 +1,12 @@
 
+import re
 import psycopg2, requests, json, os
 from dotenv import load_dotenv
 
 from streamlit_tags import st_tags
 import streamlit as st
 
-from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, VideoUnavailable
 
 from langchain import LLMChain
 from langchain.document_loaders import YoutubeLoader
@@ -41,17 +42,15 @@ body_template = '''
     
     For example, if they are beginner, explain them in easy and understanding way. If they are proffient or higher, you can explain in more complex way with good examples if needed
 
-    You have to provide examples or problems with solutions if needed for topic explanation
+    You need to follow this command {custom_filter}
+
+    You HAVE TO provide examples or problems with solutions if needed for topic explanation
 
     You need to use the following data to create plan:
         "materials: 
             {materials}
     
-    Write the full explanatory speech of each instruction under each instruction part
-
-    DO NOT RETURN YOUR ANSWER TWICE, KEEP THE ANSWER UNIQUE WITHOUT DUPLICATES
-
-    Return the answer strictly like this JSON format:
+    Return the answer strictly like this JSON format :
 
         "Write the topic or subtopic name or something that makes sense" : {{ 
 
@@ -160,7 +159,7 @@ def clear_history():
 
 
 
-def create_plan_by_youtube(prompt, student_category, student_level, yt_urls):
+def create_plan_by_youtube(prompt, student_category, student_level, custom_filter, yt_urls):
     yt_ids = []
     
     if len(prompt) != 0:
@@ -193,7 +192,7 @@ def create_plan_by_youtube(prompt, student_category, student_level, yt_urls):
 
     with get_openai_callback() as cb:
         for doc in docs:
-            r = chain.run(question='create a teaching scenario', query='create a teaching scenario', prev_responses_summary=prev_responses_summary, student_category = student_category, student_level = student_level, materials=doc.page_content)
+            r = chain.run(question='create a teaching scenario', query='create a teaching scenario', prev_responses_summary=prev_responses_summary, student_category = student_category, student_level = student_level, custom_filter=custom_filter, materials=doc.page_content)
             responses.append(r)
             
             inp = text_splitter.create_documents(responses)
@@ -212,7 +211,15 @@ def split_into_docs(video_ids):
     for id in video_ids:
         videos.append(f'https://youtu.be/{id}')
 
-    transcript_list = YouTubeTranscriptApi.get_transcripts(video_ids, languages=['en', 'ru'])
+    try:
+        transcript_list = YouTubeTranscriptApi.get_transcripts(video_ids, languages=['fr'])
+        print('Transcripts are available')
+    except TranscriptsDisabled:
+        print("Transcripts are disabled for one or more videos.")
+    except VideoUnavailable:
+        print("One or more videos are unavailable.")
+    except Exception as e:
+        print("An unexpected error occurred:", e)
 
     res = ''
     for id in video_ids:
@@ -316,20 +323,27 @@ def print_generated_plans_and_store_in_db():
                         response_for_history += '\n'
                     
 
-                    try:
-                        command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
-                        cursor.execute(command, (user_nickname, user_input, response_for_history,))
-                        connection.commit()
+                    # try:
+                    #     command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
+                    #     cursor.execute(command, (user_nickname, user_input, response_for_history,))
+                    #     connection.commit()
 
-                    except (Exception, psycopg2.Error) as error:
-                        print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                        connection.rollback()
+                    # except (Exception, psycopg2.Error) as error:
+                    #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                    #     connection.rollback()
 
                 if response_for_history:
                     st.download_button('Загрузить', generate_pdf(response_for_history), 'youtube.pdf')
                 
                 st.divider()
 
+
+def is_youtube_link(link):
+    # Regular expression pattern to match YouTube video URLs
+    youtube_pattern = r'^https?://(?:www\.)?(?:youtu\.be/|youtube\.com/watch\?v=)([\w-]+)'
+
+    # Check if the link matches the YouTube pattern
+    return re.match(youtube_pattern, link) is not None
 
 
 if 'youtube-plan' not in st.session_state:
@@ -338,23 +352,18 @@ if 'youtube-plan' not in st.session_state:
     }
 
 
-connection = establish_database_connection()
-cursor = connection.cursor()
+# connection = establish_database_connection()
+# cursor = connection.cursor()
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 if user_nickname:
-    create_tables(cursor)
+    # create_tables(cursor)
 
     st.subheader('Создай план используя ютуб')
-    yt_urls = st_tags(
-        label='Добавьте свои ссылки ютуб видео или вбейте тему:',
-        text='Нажмите Enter чтоб добавить',
-    )
-
 
     student_category = st.selectbox(
         'Кому предназначен урок?',
-        ('Дети', 'Школьники', 'Cтуденты', 'Взрослые', 'Престарелые')
+        ('Дети до 6 лет', 'Школьники', 'Cтуденты', 'Взрослые')
     
     )
     student_level = st.selectbox(
@@ -363,7 +372,18 @@ if user_nickname:
     
     )
 
-    user_input = st.text_area("Введи название темы", key='input', height=50)
+    custom_filter = st.text_input("Введите что то еще если есть:")
+
+    yt_urls = st_tags(
+        label='Поле для ссылки ютуб видео:',
+        text='Нажмите Enter чтоб добавить',
+    )
+
+    for url in yt_urls:
+        if not is_youtube_link(url):
+            st.error(f'Invalid url {url}')
+
+    user_input = st.text_area("Поле для поиска по ютуб", key='input', height=50)
     submit_button = st.button(label='Создать')
 
 
@@ -372,7 +392,7 @@ if user_nickname:
         try:
             with st.spinner('Пожалуйста подождите 2-3 минуты'):
     
-                responses, videos = create_plan_by_youtube(user_input, student_category, student_level, yt_urls)
+                responses, videos = create_plan_by_youtube(user_input, student_category, student_level, custom_filter, yt_urls)
                 final_responses = []
                 for response in responses:
                     final_responses.append(json.loads(response))
@@ -402,14 +422,14 @@ if user_nickname:
 
         if submit_button and feedback_input:
 
-            try:
-                command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
-                cursor.execute(command, (user_nickname, rating, feedback_input, email))
-                connection.commit()
+            # try:
+            #     command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
+            #     cursor.execute(command, (user_nickname, rating, feedback_input, email))
+            #     connection.commit()
 
-            except (Exception, psycopg2.Error) as error:
-                print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                connection.rollback()
+            # except (Exception, psycopg2.Error) as error:
+            #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+            #     connection.rollback()
 
             st.success("Feedback submitted successfully!")
 
@@ -417,5 +437,5 @@ if user_nickname:
         clear_history()
 
 
-cursor.close()
-connection.close()
+# cursor.close()
+# connection.close()
