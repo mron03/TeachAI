@@ -50,22 +50,18 @@ body_template = '''
         "materials: 
             {materials}
     
-    Return the answer strictly like this JSON format :
-
-        "Write the topic or subtopic name or something that makes sense" : {{ 
-
-            "Instruction 1" : "Write What to do"
-            "Speech 1": 
-                "Write what to tell for instruction 1"
-            
-            "Instruction 2" : Write What to do 
-            "Speech 2": 
-                "Write what to tell for instruction 2"
-
-            "Instruction 3" : Write What to do 
-            "Speech 3": 
-                "Write what to tell for instruction 3"
-
+    Return the answer in VALID JSON format that could be converted from string to dictionary using json.loads():
+        {{
+            "Write the topic name" : {{
+                "Instruction 1" : "Write What to do",
+                "Speech 1": "Write what to tell for instruction 1",
+                "Instruction 2" : "Write What to do",
+                "Speech 2": "Write what to tell for instruction 2",
+                "Instruction 3" : "Write What to do",
+                "Speech 3": "Write what to tell for instruction 3",
+                "Instruction N": "...",
+                "Speech N": "..."
+            }}
         }}
     
     Example of idiomatic JSON response: {{"Integrals":{{"Instruction 1":"Introduce topic of integrals","Speech 1":"Today, we are going to learn integrals","Instruction 2":"Show examples and problems","Speech 2":"Here is the problem we are going to solve","Instruction 3":"Conclude the topic","Speech 3":"In conclusion, integrals are very useful"}}}}
