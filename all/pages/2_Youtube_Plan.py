@@ -307,7 +307,8 @@ if 'youtube-plan' not in st.session_state:
 
 
 connection = establish_database_connection()
-cursor = connection.cursor()
+if connection:
+    cursor = connection.cursor()
 
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
