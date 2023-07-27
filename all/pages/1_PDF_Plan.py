@@ -2,9 +2,7 @@ import json, os, tempfile, psycopg2
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
-
 import streamlit as st
-from streamlit_chat import message
 
 from langchain import LLMChain
 from langchain.document_loaders import PyPDFLoader
@@ -16,6 +14,14 @@ from langchain.prompts.chat import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
+
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
 
 
 human_template = '''Complete the following request: {query}'''
@@ -55,6 +61,37 @@ body_plan_template = '''
 
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
+
+def generate_pdf(text):
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+
+    # Register the "DejaVuSans" font, which supports Cyrillic characters
+    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+
+    # Create a custom style for your text using the "DejaVuSans" font
+    custom_style = ParagraphStyle(
+        'CustomStyle',
+        parent=styles['Normal'],
+        fontName='DejaVuSans',
+        fontSize=12,
+        textColor=colors.black,
+        spaceAfter=12,
+    )
+
+    story = []
+
+    # Add your generated text to the story
+    for paragraph in text.split('\n'):
+        p = Paragraph(paragraph, custom_style)
+        story.append(p)
+
+    doc.build(story)
+    buffer.seek(0)
+
+    return buffer
 
 def print_table_rows(table, cursor):
     select_query = f"SELECT * FROM {table}"
@@ -139,6 +176,7 @@ def get_response(user_input, pages, student_category, student_level, custom_filt
 
 def clear_history():
     st.session_state['pdf-plan']['generated'] = []
+    st.session_state['pdf-plan']['names'] = []
 
 
 
@@ -178,49 +216,59 @@ def handle_plan_creation(source_doc, student_category, student_level, custom_fil
             response =  responses
 
             st.session_state['pdf-plan']['generated'].append(response)
+            st.session_state['pdf-plan']['names'].append(source_doc.name)
     except Exception as e:
         st.exception(f"An error occurred: {e}")
 
 
 def print_generated_plans_and_store_in_db():
-    for i in range(len(st.session_state['pdf-plan']['generated'])):
+        for i in range(len(st.session_state['pdf-plan']['generated'])):
+            name = st.session_state['pdf-plan']['names'][i]
+            with st.expander(name):
 
-        response_for_history = ''
-        pdf_for_history = source_doc.read()
-        j = 1
-        for item in st.session_state['pdf-plan']['generated'][i]:
-            st.header(f'Page {j}')
-            j += 1
+                response_for_history = ''
+                if source_doc:
+                    pdf_for_history = source_doc.read()
 
-            for topic, value in item.items():
-                st.subheader(topic)
+                for item in st.session_state['pdf-plan']['generated'][i]:
 
-                response_for_history += topic
-                response_for_history += '\n'
+                    for topic, value in item.items():
+                        st.subheader(topic)
 
-                for inst_speech, content in value.items():
-                    st.write(f'{inst_speech} : {content}')
-                    st.write()  
+                        response_for_history += topic
+                        response_for_history += '\n'
 
-                    response_for_history += f'{inst_speech} : {content}'
-                    response_for_history += '\n'
+                        for inst_speech, content in value.items():
+                            st.write(f'{inst_speech} : {content}')
+                            st.write()  
 
-                st.write()
-                response_for_history += '\n'
+                            response_for_history += f'{inst_speech} : {content}'
+                            response_for_history += '\n'
 
-        try:
-            command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
-            cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
-            connection.commit()
-        except (Exception, psycopg2.Error) as error:
-            print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-            connection.rollback()
+                        st.write()
+                        response_for_history += '\n'
+
+                if source_doc:
+                    try:
+                        command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
+                        cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
+                        connection.commit()
+                    except (Exception, psycopg2.Error) as error:
+                        print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                        connection.rollback()
+                
+                if response_for_history:
+                    st.download_button('Загрузить', generate_pdf(response_for_history), file_name=f'{name}.pdf')
+                
+                st.divider()
+
 
 
 
 if 'pdf-plan' not in st.session_state:
     st.session_state['pdf-plan'] = {
         'generated' : [],
+        'names' : []
     }
 
 connection = establish_database_connection()
@@ -230,7 +278,7 @@ user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИК
 
 
 if user_nickname:
-    create_tables(cursor)
+    # create_tables(cursor)
 
     student_category = st.selectbox(
         'Кому предназначен урок?',
@@ -252,23 +300,27 @@ if user_nickname:
 
     source_doc = st.file_uploader("Загружай свой файл PDF", type="pdf")
 
-
-
     submit_button = st.button(label='Создать')
 
     if submit_button:
-        if not openai_api_key:
-            st.error("Please provide the missing API keys in Settings.")
-        elif not source_doc:
-            st.error("Please provide the lecture document.")
+        if not source_doc:
+            st.error("Пожалуйста загрузите файл.")
         else:
             handle_plan_creation(source_doc, student_category_translated, student_level_translated, custom_filter_translated)
 
-    clear_button = st.button("Очистить Историю", key="clear")
+    clear_button = st.button("Очистить", key="clear")
 
     st.write("#")
 
-    with st.expander("Форма для отзыва"):
+    if clear_button:
+        clear_history()
+
+    if st.session_state['pdf-plan']:
+        print_generated_plans_and_store_in_db()
+    
+    st.write("#")
+
+    with st.expander("Отзыв"):
         rating = st.slider('Оцените сервис от 0 до 10', 0, 10, 5)
 
         bad_pdf = st.file_uploader("Загрузите PDF который не заработал или вывел плохой результат", type="pdf")
@@ -286,14 +338,7 @@ if user_nickname:
 
             handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email)
 
-            st.success("Feedback submitted successfully!")
-
-
-    if clear_button:
-        clear_history()
-
-if st.session_state['pdf-plan']:
-    print_generated_plans_and_store_in_db()
+            st.success("Отзыв отправлен!")
 
 cursor.close()
 connection.close()

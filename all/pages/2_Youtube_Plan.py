@@ -6,11 +6,8 @@ from streamlit_tags import st_tags
 import streamlit as st
 
 from youtube_transcript_api import YouTubeTranscriptApi
-from deep_translator import GoogleTranslator
 
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.docstore.document import Document
-from langchain import LLMChain, OpenAI
+from langchain import LLMChain
 from langchain.document_loaders import YoutubeLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -18,13 +15,19 @@ from langchain.callbacks import get_openai_callback
 from langchain.vectorstores import Chroma
 from langchain.chat_models import ChatOpenAI
 from langchain.chains.summarize import load_summarize_chain
-from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
 
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
 
 
 body_template = '''
@@ -73,6 +76,36 @@ load_dotenv()
 youtube_api_key = os.getenv('YOUTUBE_API_KEY')
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+def generate_pdf(text):
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+
+    # Register the "DejaVuSans" font, which supports Cyrillic characters
+    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+
+    # Create a custom style for your text using the "DejaVuSans" font
+    custom_style = ParagraphStyle(
+        'CustomStyle',
+        parent=styles['Normal'],
+        fontName='DejaVuSans',
+        fontSize=12,
+        textColor=colors.black,
+        spaceAfter=12,
+    )
+
+    story = []
+
+    # Add your generated text to the story
+    for paragraph in text.split('\n'):
+        p = Paragraph(paragraph, custom_style)
+        story.append(p)
+
+    doc.build(story)
+    buffer.seek(0)
+
+    return buffer
 
 def create_tables(cursor):
     commands = [
@@ -198,9 +231,6 @@ def split_into_docs(video_ids):
 
         for t in final_transcript:
             res = res + t['text'] + '\n'
-        print(videos)
-        print(res)
-        print('TEXTTTTTTTTTTTTTTT', res)
     
         num_of_tokens = llm.get_num_tokens(res)
         
@@ -261,12 +291,10 @@ def get_youtube_videos(prompt):
 
 
 def print_generated_plans_and_store_in_db():
-    with st.expander('Результат'):
-        for i in range(1, len(st.session_state['youtube-plan']['generated'])):
-
+    with st.expander('Результаты'):
+    
+        for i in range(len(st.session_state['youtube-plan']['generated'])):
                 response_for_history = ''
-
-
 
                 for response in st.session_state['youtube-plan']['generated'][i]:
                     print(response)
@@ -284,8 +312,7 @@ def print_generated_plans_and_store_in_db():
                             
                             response_for_history += f'{inst_speech} : {content}'
                             response_for_history += '\n'
-                        
-                        st.divider()
+
                         response_for_history += '\n'
                     
 
@@ -298,6 +325,11 @@ def print_generated_plans_and_store_in_db():
                         print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
                         connection.rollback()
 
+                if response_for_history:
+                    st.download_button('Загрузить', generate_pdf(response_for_history), 'youtube.pdf')
+                
+                st.divider()
+
 
 
 if 'youtube-plan' not in st.session_state:
@@ -308,7 +340,6 @@ if 'youtube-plan' not in st.session_state:
 
 connection = establish_database_connection()
 cursor = connection.cursor()
-
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 if user_nickname:
@@ -338,27 +369,25 @@ if user_nickname:
 
     if submit_button and (user_input or yt_urls):
 
-        if not openai_api_key:
-            st.error("Please provide the missing API keys in Settings.")
-        else:
-            try:
-                with st.spinner('Пожалуйста подождите 2-3 минуты'):
-        
-                    responses, videos = create_plan_by_youtube(user_input, student_category, student_level, yt_urls)
-                    final_responses = []
-                    for response in responses:
-                        final_responses.append(json.loads(response))
+        try:
+            with st.spinner('Пожалуйста подождите 2-3 минуты'):
+    
+                responses, videos = create_plan_by_youtube(user_input, student_category, student_level, yt_urls)
+                final_responses = []
+                for response in responses:
+                    final_responses.append(json.loads(response))
 
-                    st.session_state['youtube-plan']['generated'].append(final_responses)
+                st.session_state['youtube-plan']['generated'].append(final_responses)
 
-            except Exception as e:
-                st.exception(f"An error occurred: {e}")
+        except Exception as e:
+            st.exception(f"An error occurred: {e}")
 
 
 
-    clear_button = st.button("Очистить историю", key="clear")
+    clear_button = st.button("Очистить", key="clear")
 
-    st.write('#')
+    if st.session_state['youtube-plan']:
+        print_generated_plans_and_store_in_db()
 
     with st.expander("Форма для отзыва"):
 
@@ -387,8 +416,6 @@ if user_nickname:
     if clear_button:
         clear_history()
 
-if st.session_state['youtube-plan']:
-    print_generated_plans_and_store_in_db()
 
 cursor.close()
 connection.close()
