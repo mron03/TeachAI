@@ -229,8 +229,9 @@ def split_into_docs(video_ids):
         num_of_tokens = llm.get_num_tokens(res)
         print(11111111111111111111111)
         
-        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=4000, chunk_overlap=500)
+        text_splitter = RecursiveCharacterTextSplitter(separators=["\n"], chunk_size=10000, chunk_overlap=500)
         print(2222222222222222)
+        docs = text_splitter.create_documents([res])
         print(333333333333333333333333333333333)
         num_docs = len(docs)
         print(4444444444444444444444444)
