@@ -226,7 +226,6 @@ def split_into_docs(video_ids):
         print('\n\n=============================REFORMATTED TRANSCRIPT')
         print(res)
     
-        num_of_tokens = llm.get_num_tokens(res)
         print(11111111111111111111111)
         
         text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=4000, chunk_overlap=500)
