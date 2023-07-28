@@ -207,15 +207,6 @@ def split_into_docs(video_ids):
     for id in video_ids:
         videos.append(f'https://youtu.be/{id}')
 
-    try:
-        transcript_list = YouTubeTranscriptApi.get_transcripts(video_ids, languages=['fr'])
-        print('Transcripts are available')
-    except TranscriptsDisabled:
-        print("Transcripts are disabled for one or more videos.")
-    except VideoUnavailable:
-        print("One or more videos are unavailable.")
-    except Exception as e:
-        print("An unexpected error occurred:", e)
 
     res = ''
     for id in video_ids:
