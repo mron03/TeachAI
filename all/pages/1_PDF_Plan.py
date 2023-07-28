@@ -40,9 +40,8 @@ body_plan_template = '''
     You need to use the following data to create plan:
         ```{materials}```
     
-    Return the answer in russian language
 
-    Return the answer in VALID JSON format that could be converted from string to dictionary using json.loads():
+    Return the answer in VALID JSON format in RUSSIAN LANGUAGE:
         {{
             "Write the topic name" : {{
                 "Instruction 1" : "Write What to do",

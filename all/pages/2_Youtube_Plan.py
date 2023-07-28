@@ -32,10 +32,6 @@ from io import BytesIO
 
 
 body_template = '''
-    Based on PREVIOUS RESPONSES SUMMARY write the LOGICAL CONTINUATION OF THE SCENARIO, DO NOT REPEAT THE CONTENT:
-        ```
-            {prev_responses_summary}
-        ```
     You are a teacher, You need to create a teaching scenario for {student_category}
 
     You are aware that your student knowledge is at {student_level} level, so you adapt the materials to them
@@ -50,7 +46,7 @@ body_template = '''
         "materials: 
             {materials}
     
-    Return the answer in VALID JSON format that could be converted from string to dictionary using json.loads():
+    Return the answer in VALID JSON format in RUSSIAN LANGUAGE:
         {{
             "Write the topic name" : {{
                 "Instruction 1" : "Write What to do",
@@ -190,10 +186,12 @@ def create_plan_by_youtube(prompt, student_category, student_level, custom_filte
         for doc in docs:
             r = chain.run(question='create a teaching scenario', query='create a teaching scenario', prev_responses_summary=prev_responses_summary, student_category = student_category, student_level = student_level, custom_filter=custom_filter, materials=doc.page_content)
             responses.append(r)
+            print('============================================RESPOSNSE', r)
             
             inp = text_splitter.create_documents(responses)
+            print('===================================SPLITTED RESPONSESSSSSSSSSSSSSSS', inp)
             prev_responses_summary = summarization_chain.run(inp)
-            print('SUMMARIEssssssssssssssssssssssssssssS', prev_responses_summary)
+            print('SUMMARIESSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS', prev_responses_summary)
             print(cb)
 
     return responses, videos
@@ -206,16 +204,6 @@ def split_into_docs(video_ids):
     videos = []
     for id in video_ids:
         videos.append(f'https://youtu.be/{id}')
-
-    try:
-        transcript_list = YouTubeTranscriptApi.get_transcripts(video_ids, languages=['fr'])
-        print('Transcripts are available')
-    except TranscriptsDisabled:
-        print("Transcripts are disabled for one or more videos.")
-    except VideoUnavailable:
-        print("One or more videos are unavailable.")
-    except Exception as e:
-        print("An unexpected error occurred:", e)
 
     res = ''
     for id in video_ids:
@@ -237,7 +225,7 @@ def split_into_docs(video_ids):
     
         num_of_tokens = llm.get_num_tokens(res)
         
-        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=4000, chunk_overlap=500)
+        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=10000, chunk_overlap=0)
 
         docs = text_splitter.create_documents([res])
         num_docs = len(docs)
