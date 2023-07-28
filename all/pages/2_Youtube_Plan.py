@@ -10,7 +10,7 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, Vi
 
 from langchain import LLMChain
 from langchain.document_loaders import YoutubeLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback
 from langchain.vectorstores import Chroma
@@ -229,7 +229,7 @@ def split_into_docs(video_ids):
         num_of_tokens = llm.get_num_tokens(res)
         print(11111111111111111111111)
         
-        text_splitter = CharacterTextSplitter(separator="\n", chunk_size=10000, chunk_overlap=500, length_function = len)
+        text_splitter = CharacterTextSplitter(separators=["\n"], chunk_size=10000, chunk_overlap=500)
         print(2222222222222222)
         docs = text_splitter.create_documents([res])
         print(333333333333333333333333333333333)
