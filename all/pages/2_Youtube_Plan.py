@@ -36,20 +36,19 @@ body_template = '''
         ```
             {prev_responses_summary}
         ```
+
+    You need to use the following data to create plan:
+            ```{materials}```
+
     You are a teacher, You need to create a teaching scenario for {student_category}
 
     You are aware that your student knowledge is at {student_level} level, so you adapt the materials to them
     
     For example, if they are beginner, explain them in easy and understanding way. If they are proffient or higher, you can explain in more complex way with good examples if needed
 
-    You need to follow this command {custom_filter}
+    You need to follow this command ```{custom_filter}```
 
-    You HAVE TO provide examples or problems with solutions if needed for topic explanation
 
-    You need to use the following data to create plan:
-        "materials: 
-            {materials}
-    
     Return the answer in VALID JSON format in russian language:
         {{
             "Write the topic name" : {{

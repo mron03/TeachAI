@@ -27,18 +27,17 @@ from io import BytesIO
 human_template = '''Complete the following request: {query}'''
 
 body_plan_template = '''
+
+    You need to use the following data to create plan:
+            ```{materials}```
+
     You are a teacher who wants to create a very detailed teaching plan with full explanation
 
     You have to provide examples or problems with solutions if needed for topic explanation
 
-    You are a teacher, You need to create a teaching scenario for {student_category}
-
     You are aware that your student knowledge is at {student_level} level, so you adapt the materials to them
 
     You need to follow this command {custom_filter}
-
-    You need to use the following data to create plan:
-        ```{materials}```
     
 
     Return the answer in VALID JSON format in russian language:
