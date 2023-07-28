@@ -36,6 +36,8 @@ body_plan_template = '''
     You are aware that your student knowledge is at {student_level} level, so you adapt the materials to them
 
     You need to follow this command {custom_filter}
+    
+    Make each speech not longer than 200 characters
 
     You need to use the following data to create plan:
         ```{materials}```
