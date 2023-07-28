@@ -76,10 +76,8 @@ def generate_pdf(text):
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()
 
-    # Register the "DejaVuSans" font, which supports Cyrillic characters
     pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
 
-    # Create a custom style for your text using the "DejaVuSans" font
     custom_style = ParagraphStyle(
         'CustomStyle',
         parent=styles['Normal'],
@@ -91,7 +89,6 @@ def generate_pdf(text):
 
     story = []
 
-    # Add your generated text to the story
     for paragraph in text.split('\n'):
         p = Paragraph(paragraph, custom_style)
         story.append(p)
@@ -167,6 +164,7 @@ def create_plan_by_youtube(prompt, student_category, student_level, custom_filte
 
     docs, videos = split_into_docs(yt_ids)
 
+
     llm=ChatOpenAI(model_name='gpt-3.5-turbo-16k', temperature=0, verbose=True)
 
     system_prompt = SystemMessagePromptTemplate.from_template(body_template)
@@ -192,7 +190,8 @@ def create_plan_by_youtube(prompt, student_category, student_level, custom_filte
             
             inp = text_splitter.create_documents(responses)
             prev_responses_summary = summarization_chain.run(inp)
-            print('SUMMARIEssssssssssssssssssssssssssssS', prev_responses_summary)
+            print('============================SUMMARIES OF PREV RESPONSES', prev_responses_summary)
+            print('\n=============================CURRENT RESPONSE')
             print(cb)
 
     return responses, videos
@@ -211,7 +210,7 @@ def split_into_docs(video_ids):
     for id in video_ids:
         transcript_list = YouTubeTranscriptApi.list_transcripts(id)
         transcript = transcript_list.find_transcript(['en', 'ru'])
-        print(transcript.fetch())
+        print('\n\n=========================FETCHED TRANSCRIPT', transcript.fetch())
         translated_transcript = transcript.translate('en')
         translated_transcript_fetched = translated_transcript.fetch()
 
@@ -224,6 +223,8 @@ def split_into_docs(video_ids):
 
         for t in final_transcript:
             res = res + t['text'] + '\n'
+        print('\n\n=============================REFORMATTED TRANSCRIPT')
+        print(res)
     
         num_of_tokens = llm.get_num_tokens(res)
         
@@ -239,9 +240,10 @@ def split_into_docs(video_ids):
 
     
     for d in docs:
-        print('DOCUMENTS:')
+        print(f'\n=================DOCUMENTS:  NUMBER OF TR: {len(docs)} ')
         print(d.page_content)
         print()
+    print(f'\n\n==================================VIdeos   {videos}')
     return docs, videos
 
 
@@ -290,7 +292,7 @@ def print_generated_plans_and_store_in_db():
                 response_for_history = ''
 
                 for response in st.session_state['youtube-plan']['generated'][i]:
-                    print(response)
+                    print('PRINTING RESPONSES', response)
                     print(type(response))
 
                 for response in st.session_state['youtube-plan']['generated'][i]:
@@ -325,10 +327,7 @@ def print_generated_plans_and_store_in_db():
 
 
 def is_youtube_link(link):
-    # Regular expression pattern to match YouTube video URLs
     youtube_pattern = r'^https?://(?:www\.)?(?:youtu\.be/|youtube\.com/watch\?v=)([\w-]+)'
-
-    # Check if the link matches the YouTube pattern
     return re.match(youtube_pattern, link) is not None
 
 
@@ -382,6 +381,8 @@ if user_nickname:
                 final_responses = []
                 for response in responses:
                     final_responses.append(json.loads(response))
+                
+                print(f'=============================FINAL RESPONSES \n {final_responses}')
 
                 st.session_state['youtube-plan']['generated'].append(final_responses)
 
