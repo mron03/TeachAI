@@ -186,12 +186,12 @@ def create_plan_by_youtube(prompt, student_category, student_level, custom_filte
         for doc in docs:
             r = chain.run(question='create a teaching scenario', query='create a teaching scenario', prev_responses_summary=prev_responses_summary, student_category = student_category, student_level = student_level, custom_filter=custom_filter, materials=doc.page_content)
             responses.append(r)
-            print('============================================RESPOSNSE', r)
+            # print('============================================RESPOSNSE', r)
             
             inp = text_splitter.create_documents(responses)
-            print('===================================SPLITTED RESPONSESSSSSSSSSSSSSSS', inp)
+            # print('===================================SPLITTED RESPONSESSSSSSSSSSSSSSS', inp)
             prev_responses_summary = summarization_chain.run(inp)
-            print('SUMMARIESSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS', prev_responses_summary)
+            # print('SUMMARIESSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS', prev_responses_summary)
             print(cb)
 
     return responses, videos
@@ -209,7 +209,7 @@ def split_into_docs(video_ids):
     for id in video_ids:
         transcript_list = YouTubeTranscriptApi.list_transcripts(id)
         transcript = transcript_list.find_transcript(['en', 'ru'])
-        print(transcript.fetch())
+        # print(transcript.fetch())
         translated_transcript = transcript.translate('en')
         translated_transcript_fetched = translated_transcript.fetch()
 
@@ -232,14 +232,14 @@ def split_into_docs(video_ids):
 
         num_tokens_first_doc = llm.get_num_tokens(docs[0].page_content)
 
-        print (f"{num_of_tokens} Now we have {num_docs} documents and the first one has {num_tokens_first_doc} tokens")
+        # print (f"{num_of_tokens} Now we have {num_docs} documents and the first one has {num_tokens_first_doc} tokens")
          
 
     
-    for d in docs:
-        print('DOCUMENTS:')
-        print(d.page_content)
-        print()
+    # for d in docs:
+    #     print('DOCUMENTS:')
+    #     print(d.page_content)
+    #     print()
     return docs, videos
 
 
@@ -287,9 +287,9 @@ def print_generated_plans_and_store_in_db():
         for i in range(len(st.session_state['youtube-plan']['generated'])):
                 response_for_history = ''
 
-                for response in st.session_state['youtube-plan']['generated'][i]:
-                    print(response)
-                    print(type(response))
+                # for response in st.session_state['youtube-plan']['generated'][i]:
+                #     print(response)
+                #     print(type(response))
 
                 for response in st.session_state['youtube-plan']['generated'][i]:
 
@@ -307,14 +307,14 @@ def print_generated_plans_and_store_in_db():
                         response_for_history += '\n'
                     
 
-                    # try:
-                    #     command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
-                    #     cursor.execute(command, (user_nickname, user_input, response_for_history,))
-                    #     connection.commit()
+                    try:
+                        command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
+                        cursor.execute(command, (user_nickname, user_input, response_for_history,))
+                        connection.commit()
 
-                    # except (Exception, psycopg2.Error) as error:
-                    #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                    #     connection.rollback()
+                    except (Exception, psycopg2.Error) as error:
+                        print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                        connection.rollback()
 
                 if response_for_history:
                     st.download_button('Загрузить', generate_pdf(response_for_history), 'youtube.pdf')
@@ -336,12 +336,12 @@ if 'youtube-plan' not in st.session_state:
     }
 
 
-# connection = establish_database_connection()
-# cursor = connection.cursor()
+connection = establish_database_connection()
+cursor = connection.cursor()
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 if user_nickname:
-    # create_tables(cursor)
+    create_tables(cursor)
 
     st.subheader('Создай план используя ютуб')
 
@@ -406,14 +406,14 @@ if user_nickname:
 
         if submit_button and feedback_input:
 
-            # try:
-            #     command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
-            #     cursor.execute(command, (user_nickname, rating, feedback_input, email))
-            #     connection.commit()
+            try:
+                command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
+                cursor.execute(command, (user_nickname, rating, feedback_input, email))
+                connection.commit()
 
-            # except (Exception, psycopg2.Error) as error:
-            #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-            #     connection.rollback()
+            except (Exception, psycopg2.Error) as error:
+                print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                connection.rollback()
 
             st.success("Feedback submitted successfully!")
 
@@ -421,5 +421,5 @@ if user_nickname:
         clear_history()
 
 
-# cursor.close()
-# connection.close()
+cursor.close()
+connection.close()
