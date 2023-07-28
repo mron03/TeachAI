@@ -6,6 +6,7 @@ import streamlit as st
 
 from langchain import LLMChain
 from langchain.document_loaders import PyPDFLoader
+from langchain.chains.summarize import load_summarize_chain
 from langchain.chat_models import ChatOpenAI
 from langchain.callbacks import get_openai_callback
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -27,18 +28,15 @@ from io import BytesIO
 human_template = '''Complete the following request: {query}'''
 
 body_plan_template = '''
+    This is the summary of previous response:
+        ```{prev_response_summaries}```
 
-    You need to use the following data to create plan:
-            ```{materials}```
+    ANALYZE THIS TEXT AND USE IT TO CREATE TEACHING SCENARIO:
+        ```{materials}```
 
-    You are a teacher who wants to create a very detailed teaching plan with full explanation
+    \nYour student knowledge is at {student_level} level, so you adapt the materials to them, also {custom_filter}
 
-    You have to provide examples or problems with solutions if needed for topic explanation
-
-    You are aware that your student knowledge is at {student_level} level, so you adapt the materials to them
-
-    You need to follow this command {custom_filter}
-    
+    STRICTLY DO NOT INCLUDE QUOTES, DOUBLE QUOTES, SLASH, BACKSLASH WITHIN A STRING 
 
     Return the answer in VALID JSON format in russian language:
         {{
@@ -54,7 +52,7 @@ body_plan_template = '''
             }}
         }}
     
-    Example of idiomatic JSON response: {{"Integrals":{{"Instruction 1":"Introduce topic of integrals","Speech 1":"Today, we are going to learn integrals","Instruction 2":"Show examples and problems","Speech 2":"Here is the problem we are going to solve","Instruction 3":"Conclude the topic","Speech 3":"In conclusion, integrals are very useful"}}}}
+    Example of JSON response: {{"Integrals":{{"Instruction 1":"Introduce topic of integrals","Speech 1":"Today, we are going to learn integrals","Instruction 2":"Show examples and problems","Speech 2":"Here is the problem we are going to solve","Instruction 3":"Conclude the topic","Speech 3":"In conclusion, integrals are very useful"}}}}
 '''
 
 load_dotenv()
@@ -150,8 +148,8 @@ def establish_database_connection():
         return None
 
 
-def get_response(user_input, pages, student_category, student_level, custom_filter):
-    llm=ChatOpenAI(model_name='gpt-3.5-turbo-16k', temperature=0.4, verbose=True)
+def get_response(user_input, pages, prev_response_summaries, student_category, student_level, custom_filter):
+    llm=ChatOpenAI(model_name='gpt-3.5-turbo-16k', temperature=0, verbose=True)
 
     system_prompt = SystemMessagePromptTemplate.from_template(body_plan_template)
 
@@ -167,7 +165,7 @@ def get_response(user_input, pages, student_category, student_level, custom_filt
 
     # search = vectordb.similarity_search(user_input)
     with get_openai_callback() as cb:
-        response = chain.run(query=user_input, materials=pages, student_category=student_category, student_level=student_level, custom_filter=custom_filter)
+        response = chain.run(query=user_input, materials=pages, prev_response_summaries=prev_response_summaries, student_category=student_category, student_level=student_level, custom_filter=custom_filter)
         print(cb)
 
     return response
@@ -189,31 +187,63 @@ def handle_feedback_submission(user_nickname, rating, pdf_content, feedback_inpu
         connection.rollback()
 
 
+def format_response(response):
+    res = ''
+    for topic, value in response.items():
+        res += f'{topic}\n'
+
+        for inst, speech in value.items():
+            res += f'{inst} : {speech}\n'
+    
+    return res
+
 def handle_plan_creation(source_doc, student_category, student_level, custom_filter):
     try:
         with st.spinner('Пожалуйста подождите от 2 до 5 минут в зависимости от размера документа.'):
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
                 tmp_file.write(source_doc.read())
             loader = PyPDFLoader(tmp_file.name)
+            text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=5000, chunk_overlap=0)
 
-            pages = loader.load()
+
+            pages = loader.load_and_split(text_splitter=text_splitter)
             os.remove(tmp_file.name)
             
+            llm = ChatOpenAI(temperature=0)
+            summarization_chain = load_summarize_chain(llm, chain_type="map_reduce")
+
             responses = []
-            size = len(pages) if len(pages) <= 10 else 10
+            prev_response_summaries = ''
+            i = 0
+            for page in pages:
+                response = get_response('Create teaaching scenario', page.page_content, prev_response_summaries, student_category, student_level, custom_filter)
+                responses.append(response)    
 
-            text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=2000, chunk_overlap=200)
+                inp = text_splitter.create_documents(responses)
 
-            for i in range(size):
-                temp = text_splitter.split_text(pages[i].page_content)
-                response = get_response('Create plan', temp, student_category, student_level, custom_filter)
-                print(response)
-                response = json.loads(response)
-                responses.append(response)
+                prev_response_summaries = summarization_chain.run(inp)
 
-            response =  responses
 
-            st.session_state['pdf-plan']['generated'].append(response)
+                # print('=========================SUMMARY', prev_response_summaries)
+                # print('============================DOCS', page.page_content)
+                # print('=========================RESPONSE', response)
+
+                # if i == 2:
+                #     break
+                
+                # i += 1
+
+
+            
+            final_responses = []
+            for response in responses:
+                final_responses.append(json.loads(response))
+            
+            for r in final_responses:
+                print(type(r))
+            
+
+            st.session_state['pdf-plan']['generated'].append(final_responses)
             st.session_state['pdf-plan']['names'].append(source_doc.name)
     except Exception as e:
         st.exception(f"An error occurred: {e}")
@@ -276,7 +306,7 @@ user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИК
 
 
 if user_nickname:
-    # create_tables(cursor)
+    create_tables(cursor)
 
     student_category = st.selectbox(
         'Кому предназначен урок?',
