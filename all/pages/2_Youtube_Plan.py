@@ -50,7 +50,7 @@ body_template = '''
         "materials: 
             {materials}
     
-    Return the answer in VALID JSON format that could be converted from string to dictionary using json.loads():
+    Return the answer in VALID JSON format in russian language:
         {{
             "Write the topic name" : {{
                 "Instruction 1" : "Write What to do",
