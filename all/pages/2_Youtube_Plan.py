@@ -1,14 +1,16 @@
 
-import re
 import psycopg2, requests, json, os
 from dotenv import load_dotenv
 
 from streamlit_tags import st_tags
 import streamlit as st
 
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, VideoUnavailable
+from youtube_transcript_api import YouTubeTranscriptApi
+from deep_translator import GoogleTranslator
 
-from langchain import LLMChain
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.docstore.document import Document
+from langchain import LLMChain, OpenAI
 from langchain.document_loaders import YoutubeLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -16,19 +18,13 @@ from langchain.callbacks import get_openai_callback
 from langchain.vectorstores import Chroma
 from langchain.chat_models import ChatOpenAI
 from langchain.chains.summarize import load_summarize_chain
+from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
 
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from io import BytesIO
 
 
 body_template = '''
@@ -36,31 +32,38 @@ body_template = '''
         ```
             {prev_responses_summary}
         ```
-
-    You need to use the following data to create plan:
-            ```{materials}```
-
     You are a teacher, You need to create a teaching scenario for {student_category}
 
     You are aware that your student knowledge is at {student_level} level, so you adapt the materials to them
     
     For example, if they are beginner, explain them in easy and understanding way. If they are proffient or higher, you can explain in more complex way with good examples if needed
 
-    You need to follow this command ```{custom_filter}```
+    You have to provide examples or problems with solutions if needed for topic explanation
 
+    You need to use the following data to create plan:
+        "materials: 
+            {materials}
+    
+    Write the full explanatory speech of each instruction under each instruction part
 
-    Return the answer in VALID JSON format in russian language:
-        {{
-            "Write the topic name" : {{
-                "Instruction 1" : "Write What to do",
-                "Speech 1": "Write what to tell for instruction 1",
-                "Instruction 2" : "Write What to do",
-                "Speech 2": "Write what to tell for instruction 2",
-                "Instruction 3" : "Write What to do",
-                "Speech 3": "Write what to tell for instruction 3",
-                "Instruction N": "...",
-                "Speech N": "..."
-            }}
+    DO NOT RETURN YOUR ANSWER TWICE, KEEP THE ANSWER UNIQUE WITHOUT DUPLICATES
+
+    Return the answer strictly like this JSON format:
+
+        "Write the topic or subtopic name or something that makes sense" : {{ 
+
+            "Instruction 1" : "Write What to do"
+            "Speech 1": 
+                "Write what to tell for instruction 1"
+            
+            "Instruction 2" : Write What to do 
+            "Speech 2": 
+                "Write what to tell for instruction 2"
+
+            "Instruction 3" : Write What to do 
+            "Speech 3": 
+                "Write what to tell for instruction 3"
+
         }}
     
     Example of idiomatic JSON response: {{"Integrals":{{"Instruction 1":"Introduce topic of integrals","Speech 1":"Today, we are going to learn integrals","Instruction 2":"Show examples and problems","Speech 2":"Here is the problem we are going to solve","Instruction 3":"Conclude the topic","Speech 3":"In conclusion, integrals are very useful"}}}}
@@ -70,33 +73,6 @@ load_dotenv()
 youtube_api_key = os.getenv('YOUTUBE_API_KEY')
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-def generate_pdf(text):
-    buffer = BytesIO()
-
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    styles = getSampleStyleSheet()
-
-    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
-
-    custom_style = ParagraphStyle(
-        'CustomStyle',
-        parent=styles['Normal'],
-        fontName='DejaVuSans',
-        fontSize=12,
-        textColor=colors.black,
-        spaceAfter=12,
-    )
-
-    story = []
-
-    for paragraph in text.split('\n'):
-        p = Paragraph(paragraph, custom_style)
-        story.append(p)
-
-    doc.build(story)
-    buffer.seek(0)
-
-    return buffer
 
 def create_tables(cursor):
     commands = [
@@ -151,7 +127,7 @@ def clear_history():
 
 
 
-def create_plan_by_youtube(prompt, student_category, student_level, custom_filter, yt_urls):
+def create_plan_by_youtube(prompt, student_category, student_level, yt_urls):
     yt_ids = []
     
     if len(prompt) != 0:
@@ -163,7 +139,6 @@ def create_plan_by_youtube(prompt, student_category, student_level, custom_filte
         yt_ids.append(url.split('/')[3])
 
     docs, videos = split_into_docs(yt_ids)
-
 
     llm=ChatOpenAI(model_name='gpt-3.5-turbo-16k', temperature=0, verbose=True)
 
@@ -185,13 +160,12 @@ def create_plan_by_youtube(prompt, student_category, student_level, custom_filte
 
     with get_openai_callback() as cb:
         for doc in docs:
-            r = chain.run(question='Create a teaching scenario', query='create a teaching scenario', prev_responses_summary=prev_responses_summary, student_category = student_category, student_level = student_level, custom_filter=custom_filter, materials=doc.page_content)
+            r = chain.run(question='create a teaching scenario', query='create a teaching scenario', prev_responses_summary=prev_responses_summary, student_category = student_category, student_level = student_level, materials=doc.page_content)
             responses.append(r)
             
             inp = text_splitter.create_documents(responses)
             prev_responses_summary = summarization_chain.run(inp)
-            print('============================SUMMARIES OF PREV RESPONSES', prev_responses_summary)
-            print('\n=============================CURRENT RESPONSE')
+            print('SUMMARIEssssssssssssssssssssssssssssS', prev_responses_summary)
             print(cb)
 
     return responses, videos
@@ -205,12 +179,13 @@ def split_into_docs(video_ids):
     for id in video_ids:
         videos.append(f'https://youtu.be/{id}')
 
-    print('============================START')
+    transcript_list = YouTubeTranscriptApi.get_transcripts(video_ids, languages=['en', 'ru'])
+
     res = ''
     for id in video_ids:
         transcript_list = YouTubeTranscriptApi.list_transcripts(id)
         transcript = transcript_list.find_transcript(['en', 'ru'])
-        print('\n\n=========================FETCHED TRANSCRIPT', transcript.fetch())
+        print(transcript.fetch())
         translated_transcript = transcript.translate('en')
         translated_transcript_fetched = translated_transcript.fetch()
 
@@ -223,29 +198,27 @@ def split_into_docs(video_ids):
 
         for t in final_transcript:
             res = res + t['text'] + '\n'
-        print('\n\n=============================REFORMATTED TRANSCRIPT')
+        print(videos)
         print(res)
+        print('TEXTTTTTTTTTTTTTTT', res)
     
         num_of_tokens = llm.get_num_tokens(res)
-        print(11111111111111111111111)
         
-        text_splitter = RecursiveCharacterTextSplitter(separators=["\n"], chunk_size=10000, chunk_overlap=500)
-        print(2222222222222222)
+        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=4000, chunk_overlap=500)
+
         docs = text_splitter.create_documents([res])
-        print(333333333333333333333333333333333)
         num_docs = len(docs)
-        print(4444444444444444444444444)
+
         num_tokens_first_doc = llm.get_num_tokens(docs[0].page_content)
-        print(55555555555555555555555)
+
         print (f"{num_of_tokens} Now we have {num_docs} documents and the first one has {num_tokens_first_doc} tokens")
          
 
     
     for d in docs:
-        print(f'\n=================DOCUMENTS:  NUMBER OF TR: {len(docs)} ')
+        print('DOCUMENTS:')
         print(d.page_content)
         print()
-    print(f'\n\n==================================VIdeos   {videos}')
     return docs, videos
 
 
@@ -288,13 +261,15 @@ def get_youtube_videos(prompt):
 
 
 def print_generated_plans_and_store_in_db():
-    with st.expander('Результаты'):
-    
-        for i in range(len(st.session_state['youtube-plan']['generated'])):
+    with st.expander('Результат'):
+        for i in range(1, len(st.session_state['youtube-plan']['generated'])):
+
                 response_for_history = ''
 
+
+
                 for response in st.session_state['youtube-plan']['generated'][i]:
-                    print('PRINTING RESPONSES', response)
+                    print(response)
                     print(type(response))
 
                 for response in st.session_state['youtube-plan']['generated'][i]:
@@ -309,28 +284,20 @@ def print_generated_plans_and_store_in_db():
                             
                             response_for_history += f'{inst_speech} : {content}'
                             response_for_history += '\n'
-
+                        
+                        st.divider()
                         response_for_history += '\n'
                     
 
-                    # try:
-                    #     command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
-                    #     cursor.execute(command, (user_nickname, user_input, response_for_history,))
-                    #     connection.commit()
+                    try:
+                        command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
+                        cursor.execute(command, (user_nickname, user_input, response_for_history,))
+                        connection.commit()
 
-                    # except (Exception, psycopg2.Error) as error:
-                    #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                    #     connection.rollback()
+                    except (Exception, psycopg2.Error) as error:
+                        print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                        connection.rollback()
 
-                if response_for_history:
-                    st.download_button('Загрузить', generate_pdf(response_for_history), 'youtube.pdf')
-                
-                st.divider()
-
-
-def is_youtube_link(link):
-    youtube_pattern = r'^https?://(?:www\.)?(?:youtu\.be/|youtube\.com/watch\?v=)([\w-]+)'
-    return re.match(youtube_pattern, link) is not None
 
 
 if 'youtube-plan' not in st.session_state:
@@ -339,19 +306,24 @@ if 'youtube-plan' not in st.session_state:
     }
 
 
+connection = establish_database_connection()
+cursor = connection.cursor()
 
-# connection = establish_database_connection()
-# cursor = connection.cursor()
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 if user_nickname:
-    # create_tables(cursor)
+    create_tables(cursor)
 
     st.subheader('Создай план используя ютуб')
+    yt_urls = st_tags(
+        label='Добавьте свои ссылки ютуб видео или вбейте тему:',
+        text='Нажмите Enter чтоб добавить',
+    )
+
 
     student_category = st.selectbox(
         'Кому предназначен урок?',
-        ('Дети до 6 лет', 'Школьники', 'Cтуденты', 'Взрослые')
+        ('Дети', 'Школьники', 'Cтуденты', 'Взрослые', 'Престарелые')
     
     )
     student_level = st.selectbox(
@@ -360,44 +332,33 @@ if user_nickname:
     
     )
 
-    custom_filter = st.text_input("Введите что то еще если есть:")
-
-    yt_urls = st_tags(
-        label='Поле для ссылки ютуб видео:',
-        text='Нажмите Enter чтоб добавить',
-    )
-
-    for url in yt_urls:
-        if not is_youtube_link(url):
-            st.error(f'Invalid url {url}')
-
-    user_input = st.text_area("Поле для поиска по ютуб", key='input', height=50)
+    user_input = st.text_area("Введи название темы", key='input', height=50)
     submit_button = st.button(label='Создать')
 
 
     if submit_button and (user_input or yt_urls):
 
-        try:
-            with st.spinner('Пожалуйста подождите 2-3 минуты'):
-    
-                responses, videos = create_plan_by_youtube(user_input, student_category, student_level, custom_filter, yt_urls)
-                final_responses = []
-                for response in responses:
-                    final_responses.append(json.loads(response))
-                
-                print(f'=============================FINAL RESPONSES \n {final_responses}')
+        if not openai_api_key:
+            st.error("Please provide the missing API keys in Settings.")
+        else:
+            try:
+                with st.spinner('Пожалуйста подождите 2-3 минуты'):
+        
+                    responses, videos = create_plan_by_youtube(user_input, student_category, student_level, yt_urls)
+                    final_responses = []
+                    for response in responses:
+                        final_responses.append(json.loads(response))
 
-                st.session_state['youtube-plan']['generated'].append(final_responses)
+                    st.session_state['youtube-plan']['generated'].append(final_responses)
 
-        except Exception as e:
-            st.exception(f"An error occurred: {e}")
+            except Exception as e:
+                st.exception(f"An error occurred: {e}")
 
 
 
-    clear_button = st.button("Очистить", key="clear")
+    clear_button = st.button("Очистить историю", key="clear")
 
-    if st.session_state['youtube-plan']:
-        print_generated_plans_and_store_in_db()
+    st.write('#')
 
     with st.expander("Форма для отзыва"):
 
@@ -412,20 +373,22 @@ if user_nickname:
 
         if submit_button and feedback_input:
 
-            # try:
-            #     command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
-            #     cursor.execute(command, (user_nickname, rating, feedback_input, email))
-            #     connection.commit()
+            try:
+                command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
+                cursor.execute(command, (user_nickname, rating, feedback_input, email))
+                connection.commit()
 
-            # except (Exception, psycopg2.Error) as error:
-            #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-            #     connection.rollback()
+            except (Exception, psycopg2.Error) as error:
+                print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                connection.rollback()
 
             st.success("Feedback submitted successfully!")
 
     if clear_button:
         clear_history()
 
+if st.session_state['youtube-plan']:
+    print_generated_plans_and_store_in_db()
 
-# cursor.close()
-# connection.close()
+cursor.close()
+connection.close()
