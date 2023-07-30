@@ -10,7 +10,7 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, Vi
 
 from langchain import LLMChain
 from langchain.document_loaders import YoutubeLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback
 from langchain.vectorstores import Chroma
@@ -177,7 +177,7 @@ def create_plan_by_youtube(prompt, student_category, student_level, custom_filte
     chain_prompt = ChatPromptTemplate.from_messages([human_prompt, system_prompt])
     chain = LLMChain(llm=llm, prompt=chain_prompt)
     summarization_chain = load_summarize_chain(llm, chain_type="map_reduce")
-    text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=2000, chunk_overlap=300)
+    text_splitter = CharacterTextSplitter(separator="\n", chunk_size=2000, chunk_overlap=300)
 
 
     responses = []
@@ -229,7 +229,7 @@ def split_into_docs(video_ids):
         num_of_tokens = llm.get_num_tokens(res)
         print(11111111111111111111111)
         
-        text_splitter = RecursiveCharacterTextSplitter(separators=["\n"], chunk_size=10000, chunk_overlap=500)
+        text_splitter = CharacterTextSplitter(separator="\n", chunk_size=15000, chunk_overlap=1000, length_function = len)
         print(2222222222222222)
         docs = text_splitter.create_documents([res])
         print(333333333333333333333333333333333)
