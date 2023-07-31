@@ -230,7 +230,7 @@ if user_nickname:
             
             
             if response.status_code == 200:
-                json_data = response.json()                
+                json_data = response.json()
                 st.session_state['pdf-plan']['generated'].append(json_data['scenario'])
                 st.session_state['pdf-plan']['names'].append(source_doc.name)
             else:

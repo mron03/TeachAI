@@ -6,21 +6,6 @@ from dotenv import load_dotenv
 from streamlit_tags import st_tags
 import streamlit as st
 
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, VideoUnavailable
-
-from langchain import LLMChain
-from langchain.document_loaders import YoutubeLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.callbacks import get_openai_callback
-from langchain.vectorstores import Chroma
-from langchain.chat_models import ChatOpenAI
-from langchain.chains.summarize import load_summarize_chain
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-)
 
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -150,159 +135,6 @@ def clear_history():
     st.session_state['youtube-plan']['generated'] = []
 
 
-
-def create_plan_by_youtube(prompt, student_category, student_level, custom_filter, yt_urls):
-    yt_ids = []
-    
-    if len(prompt) != 0:
-        yt_videos = get_youtube_videos(prompt)
-        for video in yt_videos:
-            yt_ids.append(video['id']['videoId'])
-
-    for url in yt_urls:
-        yt_ids.append(url.split('/')[3])
-
-    docs, videos = split_into_docs(yt_ids)
-
-    
-    if not docs:
-        st.info(123)
-        return None, videos
-
-
-    llm=ChatOpenAI(model_name='gpt-3.5-turbo-16k', temperature=0, verbose=True)
-
-    system_prompt = SystemMessagePromptTemplate.from_template(body_template)
-
-    human_template = '''
-        Complete the following request: {query}
-    '''
-    human_prompt = HumanMessagePromptTemplate.from_template(human_template)
-
-    chain_prompt = ChatPromptTemplate.from_messages([human_prompt, system_prompt])
-    chain = LLMChain(llm=llm, prompt=chain_prompt)
-    summarization_chain = load_summarize_chain(llm, chain_type="map_reduce")
-    text_splitter = CharacterTextSplitter(separator="\n", chunk_size=2000, chunk_overlap=300)
-
-
-    responses = []
-    prev_responses_summary = ''
-
-    with get_openai_callback() as cb:
-        for doc in docs:
-            r = chain.run(question='Create a teaching scenario', query='create a teaching scenario', prev_responses_summary=prev_responses_summary, student_category = student_category, student_level = student_level, custom_filter=custom_filter, materials=doc.page_content)
-            responses.append(r)
-            
-            inp = text_splitter.create_documents(responses)
-            prev_responses_summary = summarization_chain.run(inp)
-            print('============================SUMMARIES OF PREV RESPONSES', prev_responses_summary)
-            print('\n=============================CURRENT RESPONSE')
-            print(cb)
-
-    return responses, videos
-     
-
-
-def split_into_docs(video_ids):
-    llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0, verbose=True)
-
-    videos = []
-    for id in video_ids:
-        videos.append(f'https://youtu.be/{id}')
-
-    untranscriptble_urls = []
-    print('============================START')
-    res = ''
-    for id in video_ids:
-        try:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(id)
-        except Exception as e:
-            untranscriptble_urls.append(f'https://youtu.be/{id}')
-            continue
-            
-
-
-        transcript = transcript_list.find_transcript(['en', 'ru'])
-        print('\n\n=========================FETCHED TRANSCRIPT', transcript.fetch())
-        translated_transcript = transcript.translate('en')
-        translated_transcript_fetched = translated_transcript.fetch()
-
-        if len(translated_transcript_fetched) != 0:
-            final_transcript = translated_transcript_fetched
-        else:
-            final_transcript = transcript.fetch()
-
-
-
-        for t in final_transcript:
-            res = res + t['text'] + '\n'
-        print('\n\n=============================REFORMATTED TRANSCRIPT')
-        print(res)
-    
-        num_of_tokens = llm.get_num_tokens(res)        
-        text_splitter = CharacterTextSplitter(separator="\n", chunk_size=10000, chunk_overlap=1000, length_function = len)
-        docs = text_splitter.create_documents([res])
-        num_docs = len(docs)
-        num_tokens_first_doc = llm.get_num_tokens(docs[0].page_content)
-        print (f"{num_of_tokens} Now we have {num_docs} documents and the first one has {num_tokens_first_doc} tokens")
-         
-    # if docs:
-    #     for d in docs:
-    #         print(f'\n=================DOCUMENTS:  NUMBER OF TR: {len(docs)} ')
-    #         print(d.page_content)
-    #         print()
-    #     print(f'\n\n==================================VIdeos   {videos}')
-
-    if untranscriptble_urls:
-        untranscriptble_urls_message = 'Извините данные ссылки не имеют транскрита:\n'
-        for url in untranscriptble_urls:
-            untranscriptble_urls_message += f'\n{url}\n'
-        st.info(untranscriptble_urls_message)
-
-    if not docs:
-        return None, videos
-
-    return docs, videos
-
-
-def create_db(video_urls):
-   
-	transcript = ''
-
-	i = 1
-   
-	for video_url in video_urls:
-		loader = YoutubeLoader.from_youtube_url(video_url)
-		transcript += f'Youtube video number {i}: '
-		i += 1
-		transcript += loader.load()
-
-	text_splitter = RecursiveCharacterTextSplitter(
-		chunk_size = 1000,
-		chunk_overlap = 200,
-		length_function = len,
-	)
-
-	docs = text_splitter.split_documents(transcript)
-
-	embeddings = OpenAIEmbeddings()
-	db = Chroma.from_documents(docs, embeddings)
-
-	return db
-   
-
-
-
-def get_youtube_videos(prompt):
-
-	url = f"https://www.googleapis.com/youtube/v3/search?key={youtube_api_key}&q={prompt}&type=video&part=snippet&maxResults=1&videoDuration=medium"
-
-	response = requests.get(url)
-	data = json.loads(response.content)
-	return data["items"]
-
-
-
 def print_generated_plans_and_store_in_db():
     with st.expander('Результаты'):
     
@@ -310,12 +142,8 @@ def print_generated_plans_and_store_in_db():
                 response_for_history = ''
 
                 for response in st.session_state['youtube-plan']['generated'][i]:
-                    print('PRINTING RESPONSES', response)
-                    print(type(response))
-
-                for response in st.session_state['youtube-plan']['generated'][i]:
-
-                    for topic, value in response.items():
+                    
+                    for topic, value in json.loads(response).items():
                         st.subheader(topic)
                         response_for_history += topic
                         response_for_history += '\n'
@@ -355,7 +183,6 @@ if 'youtube-plan' not in st.session_state:
     }
 
 
-
 # connection = establish_database_connection()
 # cursor = connection.cursor()
 
@@ -387,25 +214,30 @@ if user_nickname:
         if not is_youtube_link(url):
             st.error(f'Invalid url {url}')
 
-    user_input = st.text_area("Поле для поиска по ютуб", key='input', height=50)
+    youtube_prompt = st.text_area("Поле для поиска по ютуб", key='input', height=50)
     submit_button = st.button(label='Создать')
 
 
-    if submit_button and (user_input or yt_urls):
+    if submit_button and (youtube_prompt or yt_urls):
 
         try:
             with st.spinner('Пожалуйста подождите 2-3 минуты'):
-                
-                responses, videos = create_plan_by_youtube(user_input, student_category, student_level, custom_filter, yt_urls)
 
-                if responses:
-                    final_responses = []
-                    for response in responses:
-                        final_responses.append(json.loads(response))
-                    
-                    print(f'=============================FINAL RESPONSES \n {final_responses}')
+                data = {
+                    'youtube_urls' : yt_urls,
+                    'youtube_prompt' : youtube_prompt,
+                    'student_category': student_category,
+                    'student_level': student_level,
+                    'custom_filter': custom_filter
+                }
 
-                    st.session_state['youtube-plan']['generated'].append(final_responses)
+                response = requests.post(url='http://localhost:8000/youtube/create-scenario', json=data, headers={'accept': 'application/json', 'Content-Type': 'application/json'})
+            
+                if response.status_code == 200:
+                    json_data = response.json()
+                    st.session_state['youtube-plan']['generated'].append(json_data['scenario'])
+                else:
+                    print(f"Request failed with status code: {response.status_code}")
 
         except Exception as e:
             st.exception('Exception: ', e)
