@@ -1,6 +1,7 @@
 import json, os, tempfile, psycopg2
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
+import requests
 
 import streamlit as st
 
@@ -25,38 +26,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 
 
-human_template = '''Complete the following request: {query}'''
 
-body_plan_template = '''
-    This is the summary of previous response:
-        ```{prev_response_summaries}```
-
-    ANALYZE THIS TEXT AND USE IT TO CREATE TEACHING SCENARIO:
-        ```{materials}```
-
-    \nYour student knowledge is at {student_level} level, so you adapt the materials to them, also {custom_filter}
-
-    STRICTLY DO NOT INCLUDE QUOTES, DOUBLE QUOTES, SLASH, BACKSLASH WITHIN A STRING 
-
-    Return the answer in VALID JSON format in russian language:
-        {{
-            "Write the topic name" : {{
-                "Instruction 1" : "Write What to do",
-                "Speech 1": "Write what to tell for instruction 1",
-                "Instruction 2" : "Write What to do",
-                "Speech 2": "Write what to tell for instruction 2",
-                "Instruction 3" : "Write What to do",
-                "Speech 3": "Write what to tell for instruction 3",
-                "Instruction N": "...",
-                "Speech N": "..."
-            }}
-        }}
-    
-    Example of JSON response: {{"Integrals":{{"Instruction 1":"Introduce topic of integrals","Speech 1":"Today, we are going to learn integrals","Instruction 2":"Show examples and problems","Speech 2":"Here is the problem we are going to solve","Instruction 3":"Conclude the topic","Speech 3":"In conclusion, integrals are very useful"}}}}
-'''
-
-load_dotenv()
-openai_api_key = os.getenv("OPENAI_API_KEY")
 
 def generate_pdf(text):
     buffer = BytesIO()
@@ -89,13 +59,6 @@ def generate_pdf(text):
 
     return buffer
 
-def print_table_rows(table, cursor):
-    select_query = f"SELECT * FROM {table}"
-    cursor.execute(select_query)
-    rows = cursor.fetchall()
-    print(f'Rows for {table}')
-    for row in rows:
-        print(row)
 
 
 def create_tables(cursor):
@@ -148,27 +111,6 @@ def establish_database_connection():
         return None
 
 
-def get_response(user_input, pages, prev_response_summaries, student_category, student_level, custom_filter):
-    llm=ChatOpenAI(model_name='gpt-3.5-turbo-16k', temperature=0, verbose=True)
-
-    system_prompt = SystemMessagePromptTemplate.from_template(body_plan_template)
-
-    human_template = '''
-        Complete the following request: {query}
-    '''
-    human_prompt = HumanMessagePromptTemplate.from_template(human_template)
-
-    chain_prompt = ChatPromptTemplate.from_messages([human_prompt, system_prompt])
-
-
-    chain = LLMChain(llm=llm, prompt=chain_prompt, verbose=True)
-
-    # search = vectordb.similarity_search(user_input)
-    with get_openai_callback() as cb:
-        response = chain.run(query=user_input, materials=pages, prev_response_summaries=prev_response_summaries, student_category=student_category, student_level=student_level, custom_filter=custom_filter)
-        print(cb)
-
-    return response
 
 def clear_history():
     st.session_state['pdf-plan']['generated'] = []
@@ -187,71 +129,11 @@ def handle_feedback_submission(user_nickname, rating, pdf_content, feedback_inpu
         connection.rollback()
 
 
-def format_response(response):
-    res = ''
-    for topic, value in response.items():
-        res += f'{topic}\n'
-
-        for inst, speech in value.items():
-            res += f'{inst} : {speech}\n'
-    
-    return res
-
-def handle_plan_creation(source_doc, student_category, student_level, custom_filter):
-    try:
-        with st.spinner('Пожалуйста подождите от 2 до 5 минут в зависимости от размера документа.'):
-            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-                tmp_file.write(source_doc.read())
-            loader = PyPDFLoader(tmp_file.name)
-            text_splitter = CharacterTextSplitter(separators='\n', chunk_size=5000, chunk_overlap=0)
-
-
-            pages = loader.load_and_split(text_splitter=text_splitter)
-            os.remove(tmp_file.name)
-            
-            llm = ChatOpenAI(temperature=0)
-            summarization_chain = load_summarize_chain(llm, chain_type="map_reduce")
-
-            responses = []
-            prev_response_summaries = ''
-            i = 0
-            for page in pages:
-                response = get_response('Create teaaching scenario', page.page_content, prev_response_summaries, student_category, student_level, custom_filter)
-                responses.append(response)    
-
-                inp = text_splitter.create_documents(responses)
-
-                prev_response_summaries = summarization_chain.run(inp)
-
-
-                # print('=========================SUMMARY', prev_response_summaries)
-                # print('============================DOCS', page.page_content)
-                # print('=========================RESPONSE', response)
-
-                # if i == 2:
-                #     break
-                
-                # i += 1
-
-
-            
-            final_responses = []
-            for response in responses:
-                final_responses.append(json.loads(response))
-            
-            for r in final_responses:
-                print(type(r))
-            
-
-            st.session_state['pdf-plan']['generated'].append(final_responses)
-            st.session_state['pdf-plan']['names'].append(source_doc.name)
-    except Exception as e:
-        st.exception(f"An error occurred: {e}")
 
 
 def print_generated_plans_and_store_in_db():
         for i in range(len(st.session_state['pdf-plan']['generated'])):
-            name = st.session_state['pdf-plan']['names'][i]
+            name = st.session_state['pdf-plan']['names'][0]
             with st.expander(name):
 
                 response_for_history = ''
@@ -334,7 +216,25 @@ if user_nickname:
         if not source_doc:
             st.error("Пожалуйста загрузите файл.")
         else:
-            handle_plan_creation(source_doc, student_category_translated, student_level_translated, custom_filter_translated)
+            file_data = source_doc.read()
+
+            files = {'file': file_data} 
+
+            params = {
+                'student_category': student_category,
+                'student_level': student_level,
+                'custom_filter': custom_filter
+            }
+
+            response = requests.post(url='http://localhost:8000/pdf', params=params, files=files, headers={'accept': 'application/json'})
+            
+            
+            if response.status_code == 200:
+                json_data = response.json()                
+                st.session_state['pdf-plan']['generated'].append(json_data['scenario'])
+                st.session_state['pdf-plan']['names'].append(source_doc.name)
+            else:
+                print(f"Request failed with status code: {response.status_code}")
 
     clear_button = st.button("Очистить", key="clear")
 
