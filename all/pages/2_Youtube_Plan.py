@@ -164,6 +164,11 @@ def create_plan_by_youtube(prompt, student_category, student_level, custom_filte
 
     docs, videos = split_into_docs(yt_ids)
 
+    
+    if not docs:
+        st.info(123)
+        return None, videos
+
 
     llm=ChatOpenAI(model_name='gpt-3.5-turbo-16k', temperature=0, verbose=True)
 
@@ -205,10 +210,18 @@ def split_into_docs(video_ids):
     for id in video_ids:
         videos.append(f'https://youtu.be/{id}')
 
+    untranscriptble_urls = []
     print('============================START')
     res = ''
     for id in video_ids:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(id)
+        try:
+            transcript_list = YouTubeTranscriptApi.list_transcripts(id)
+        except Exception as e:
+            untranscriptble_urls.append(f'https://youtu.be/{id}')
+            continue
+            
+
+
         transcript = transcript_list.find_transcript(['en', 'ru'])
         print('\n\n=========================FETCHED TRANSCRIPT', transcript.fetch())
         translated_transcript = transcript.translate('en')
@@ -226,26 +239,29 @@ def split_into_docs(video_ids):
         print('\n\n=============================REFORMATTED TRANSCRIPT')
         print(res)
     
-        num_of_tokens = llm.get_num_tokens(res)
-        print(11111111111111111111111)
-        
-        text_splitter = CharacterTextSplitter(separator="\n", chunk_size=15000, chunk_overlap=1000, length_function = len)
-        print(2222222222222222)
+        num_of_tokens = llm.get_num_tokens(res)        
+        text_splitter = CharacterTextSplitter(separator="\n", chunk_size=10000, chunk_overlap=1000, length_function = len)
         docs = text_splitter.create_documents([res])
-        print(333333333333333333333333333333333)
         num_docs = len(docs)
-        print(4444444444444444444444444)
         num_tokens_first_doc = llm.get_num_tokens(docs[0].page_content)
-        print(55555555555555555555555)
         print (f"{num_of_tokens} Now we have {num_docs} documents and the first one has {num_tokens_first_doc} tokens")
          
+    # if docs:
+    #     for d in docs:
+    #         print(f'\n=================DOCUMENTS:  NUMBER OF TR: {len(docs)} ')
+    #         print(d.page_content)
+    #         print()
+    #     print(f'\n\n==================================VIdeos   {videos}')
 
-    
-    for d in docs:
-        print(f'\n=================DOCUMENTS:  NUMBER OF TR: {len(docs)} ')
-        print(d.page_content)
-        print()
-    print(f'\n\n==================================VIdeos   {videos}')
+    if untranscriptble_urls:
+        untranscriptble_urls_message = 'Извините данные ссылки не имеют транскрита:\n'
+        for url in untranscriptble_urls:
+            untranscriptble_urls_message += f'\n{url}\n'
+        st.info(untranscriptble_urls_message)
+
+    if not docs:
+        return None, videos
+
     return docs, videos
 
 
@@ -379,19 +395,20 @@ if user_nickname:
 
         try:
             with st.spinner('Пожалуйста подождите 2-3 минуты'):
-    
-                responses, videos = create_plan_by_youtube(user_input, student_category, student_level, custom_filter, yt_urls)
-                final_responses = []
-                for response in responses:
-                    final_responses.append(json.loads(response))
                 
-                print(f'=============================FINAL RESPONSES \n {final_responses}')
+                responses, videos = create_plan_by_youtube(user_input, student_category, student_level, custom_filter, yt_urls)
 
-                st.session_state['youtube-plan']['generated'].append(final_responses)
+                if responses:
+                    final_responses = []
+                    for response in responses:
+                        final_responses.append(json.loads(response))
+                    
+                    print(f'=============================FINAL RESPONSES \n {final_responses}')
+
+                    st.session_state['youtube-plan']['generated'].append(final_responses)
 
         except Exception as e:
-            st.exception(f"An error occurred: {e}")
-
+            st.exception('Exception: ', e)
 
 
     clear_button = st.button("Очистить", key="clear")

@@ -9,7 +9,7 @@ from langchain.document_loaders import PyPDFLoader
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chat_models import ChatOpenAI
 from langchain.callbacks import get_openai_callback
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.text_splitter import CharacterTextSplitter
 from langchain.prompts.chat import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
@@ -203,8 +203,7 @@ def handle_plan_creation(source_doc, student_category, student_level, custom_fil
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
                 tmp_file.write(source_doc.read())
             loader = PyPDFLoader(tmp_file.name)
-            text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=5000, chunk_overlap=0)
-
+            text_splitter = CharacterTextSplitter(separators='\n', chunk_size=10000, chunk_overlap=0)
 
             pages = loader.load_and_split(text_splitter=text_splitter)
             os.remove(tmp_file.name)
@@ -276,14 +275,14 @@ def print_generated_plans_and_store_in_db():
                         st.write()
                         response_for_history += '\n'
 
-                if source_doc:
-                    try:
-                        command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
-                        cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
-                        connection.commit()
-                    except (Exception, psycopg2.Error) as error:
-                        print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                        connection.rollback()
+                # if source_doc:
+                #     try:
+                #         command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
+                #         cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
+                #         connection.commit()
+                #     except (Exception, psycopg2.Error) as error:
+                #         print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                #         connection.rollback()
                 
                 if response_for_history:
                     st.download_button('Загрузить', generate_pdf(response_for_history), file_name=f'{name}.pdf')
@@ -299,14 +298,14 @@ if 'pdf-plan' not in st.session_state:
         'names' : []
     }
 
-connection = establish_database_connection()
-cursor = connection.cursor()
+# connection = establish_database_connection()
+# cursor = connection.cursor()
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 
 
 if user_nickname:
-    create_tables(cursor)
+    # create_tables(cursor)
 
     student_category = st.selectbox(
         'Кому предназначен урок?',
@@ -319,9 +318,9 @@ if user_nickname:
 
     custom_filter = st.text_input("Введите что то еще если есть:")
 
-    student_category_translated = GoogleTranslator(source='auto', target='ru').translate(student_category)
-    student_level_translated = GoogleTranslator(source='auto', target='ru').translate(student_level)
-    custom_filter_translated = GoogleTranslator(source='auto', target='ru').translate(custom_filter)
+    student_category_translated = GoogleTranslator(source='auto', target='en').translate(student_category)
+    student_level_translated = GoogleTranslator(source='auto', target='en').translate(student_level)
+    custom_filter_translated = GoogleTranslator(source='auto', target='en').translate(custom_filter)
 
 
     st.subheader('Создай сценарии из PDF файла')
@@ -364,9 +363,9 @@ if user_nickname:
 
         if submit_button and feedback_input:
 
-            handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email)
+            # handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email)
 
             st.success("Отзыв отправлен!")
 
-cursor.close()
-connection.close()
+# cursor.close()
+# connection.close()
