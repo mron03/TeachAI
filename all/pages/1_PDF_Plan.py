@@ -1,21 +1,7 @@
-import json, os, tempfile, psycopg2
-from deep_translator import GoogleTranslator
-from dotenv import load_dotenv
+import os, psycopg2
 import requests
 
 import streamlit as st
-
-from langchain import LLMChain
-from langchain.document_loaders import PyPDFLoader
-from langchain.chains.summarize import load_summarize_chain
-from langchain.chat_models import ChatOpenAI
-from langchain.callbacks import get_openai_callback
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-)
 
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -119,21 +105,22 @@ def clear_history():
 
 
 def handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email):
-    try:
-        command = 'INSERT INTO feedback_pdf (user_id, rating, pdf_file, text, email) VALUES(%s, %s, %s, %s, %s)' 
-        cursor.execute(command, (user_nickname, rating, psycopg2.Binary(pdf_content), feedback_input, email))
-        connection.commit()
-        st.success("Feedback submitted successfully!")
-    except (Exception, psycopg2.Error) as error:
-        print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-        connection.rollback()
+    pass
+    # try:
+    #     command = 'INSERT INTO feedback_pdf (user_id, rating, pdf_file, text, email) VALUES(%s, %s, %s, %s, %s)' 
+    #     cursor.execute(command, (user_nickname, rating, psycopg2.Binary(pdf_content), feedback_input, email))
+    #     connection.commit()
+    #     st.success("Feedback submitted successfully!")
+    # except (Exception, psycopg2.Error) as error:
+    #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+    #     connection.rollback()
 
 
 
 
 def print_generated_plans_and_store_in_db():
         for i in range(len(st.session_state['pdf-plan']['generated'])):
-            name = st.session_state['pdf-plan']['names'][0]
+            name = st.session_state['pdf-plan']['names'][i]
             with st.expander(name):
 
                 response_for_history = ''
@@ -201,11 +188,6 @@ if user_nickname:
 
     custom_filter = st.text_input("Введите что то еще если есть:")
 
-    student_category_translated = GoogleTranslator(source='auto', target='en').translate(student_category)
-    student_level_translated = GoogleTranslator(source='auto', target='en').translate(student_level)
-    custom_filter_translated = GoogleTranslator(source='auto', target='en').translate(custom_filter)
-
-
     st.subheader('Создай сценарии из PDF файла')
 
     source_doc = st.file_uploader("Загружай свой файл PDF", type="pdf")
@@ -221,12 +203,13 @@ if user_nickname:
             files = {'file': file_data} 
 
             params = {
+                'user_nickname' : user_nickname,
                 'student_category': student_category,
                 'student_level': student_level,
                 'custom_filter': custom_filter
             }
 
-            response = requests.post(url='http://localhost:8000/pdf', params=params, files=files, headers={'accept': 'application/json'})
+            response = requests.post(url='https://fastapi-ngob.onrender.com/pdf/', params=params, files=files, headers={'accept': 'application/json'})
             
             
             if response.status_code == 200:

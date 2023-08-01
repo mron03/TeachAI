@@ -224,6 +224,7 @@ if user_nickname:
             with st.spinner('Пожалуйста подождите 2-3 минуты'):
 
                 data = {
+                    'user_nickname' : user_nickname,
                     'youtube_urls' : yt_urls,
                     'youtube_prompt' : youtube_prompt,
                     'student_category': student_category,
@@ -231,7 +232,7 @@ if user_nickname:
                     'custom_filter': custom_filter
                 }
 
-                response = requests.post(url='http://localhost:8000/youtube/create-scenario', json=data, headers={'accept': 'application/json', 'Content-Type': 'application/json'})
+                response = requests.post(url='https://fastapi-ngob.onrender.com/youtube/create-scenario', json=data, headers={'accept': 'application/json', 'Content-Type': 'application/json'})
             
                 if response.status_code == 200:
                     json_data = response.json()
