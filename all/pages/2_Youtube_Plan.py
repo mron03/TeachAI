@@ -171,9 +171,11 @@ def print_generated_plans_and_store_in_db():
             
     
     if st.session_state['youtube-plan']['no_transcript_urls']:
-        st.subheader('Эти ссылки не имеют транскрипта: \n')
+        if len(st.session_state['youtube-plan']['no_transcript_urls'][0]) > 0:
+            st.subheader('Эти ссылки не имеют транскрипта: \n')
         for url in st.session_state['youtube-plan']['no_transcript_urls']:
-            st.write(url[0])
+            if url:
+                st.write(url[0])
 
 
 
@@ -189,12 +191,9 @@ if 'youtube-plan' not in st.session_state:
     }
 
 
-# connection = establish_database_connection()
-# cursor = connection.cursor()
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 if user_nickname:
-    # create_tables(cursor)
 
     st.subheader('Создай план используя ютуб')
 
@@ -209,7 +208,12 @@ if user_nickname:
     
     )
 
-    custom_filter = st.text_input("Введите что то еще если есть:")
+    language = st.selectbox(
+        'На каком языке вернуть ответ?',
+        ('Русский', 'Английский')
+    )
+
+    custom_filter = st.text_input("Дополнительные указания:")
 
     yt_urls = st_tags(
         label='Поле для ссылки ютуб видео:',
@@ -235,7 +239,8 @@ if user_nickname:
                     'youtube_prompt' : youtube_prompt,
                     'student_category': student_category,
                     'student_level': student_level,
-                    'custom_filter': custom_filter
+                    'custom_filter': custom_filter,
+                    'language' : language
                 }
 
                 response = requests.post(url='https://fastapi-ngob.onrender.com/youtube/create-scenario', json=data, headers={'accept': 'application/json', 'Content-Type': 'application/json'})
@@ -268,15 +273,20 @@ if user_nickname:
             
 
         if submit_button and feedback_input:
+            connection = establish_database_connection()
+            cursor = connection.cursor()
 
-            # try:
-            #     command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
-            #     cursor.execute(command, (user_nickname, rating, feedback_input, email))
-            #     connection.commit()
+            try:
+                command = 'INSERT INTO feedback_youtube (user_id, rating, text, email) VALUES(%s, %s, %s, %s)' 
+                cursor.execute(command, (user_nickname, rating, feedback_input, email))
+                connection.commit()
 
-            # except (Exception, psycopg2.Error) as error:
-            #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-            #     connection.rollback()
+            except (Exception, psycopg2.Error) as error:
+                print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+                connection.rollback()
+                
+            cursor.close()
+            connection.close()
 
             st.success("Feedback submitted successfully!")
 
@@ -284,5 +294,3 @@ if user_nickname:
         clear_history()
 
 
-# cursor.close()
-# connection.close()

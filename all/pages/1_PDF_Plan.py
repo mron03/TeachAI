@@ -105,15 +105,20 @@ def clear_history():
 
 
 def handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email):
-    pass
-    # try:
-    #     command = 'INSERT INTO feedback_pdf (user_id, rating, pdf_file, text, email) VALUES(%s, %s, %s, %s, %s)' 
-    #     cursor.execute(command, (user_nickname, rating, psycopg2.Binary(pdf_content), feedback_input, email))
-    #     connection.commit()
-    #     st.success("Feedback submitted successfully!")
-    # except (Exception, psycopg2.Error) as error:
-    #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-    #     connection.rollback()
+    connection = establish_database_connection()
+    cursor = connection.cursor()
+
+    try:
+        command = 'INSERT INTO feedback_pdf (user_id, rating, pdf_file, text, email) VALUES(%s, %s, %s, %s, %s)' 
+        cursor.execute(command, (user_nickname, rating, psycopg2.Binary(pdf_content), feedback_input, email))
+        connection.commit()
+        st.success("Feedback submitted successfully!")
+    except (Exception, psycopg2.Error) as error:
+        print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
+        connection.rollback()
+
+    cursor.close()
+    connection.close()
 
 
 
@@ -144,15 +149,6 @@ def print_generated_plans_and_store_in_db():
 
                         st.write()
                         response_for_history += '\n'
-
-                # if source_doc:
-                #     try:
-                #         command = 'INSERT INTO history_pdf (user_id, pdf_file, response) VALUES(%s, %s, %s)' 
-                #         cursor.execute(command, (user_nickname, psycopg2.Binary(pdf_for_history), response_for_history,))
-                #         connection.commit()
-                #     except (Exception, psycopg2.Error) as error:
-                #         print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                #         connection.rollback()
                 
                 if response_for_history:
                     st.download_button('Загрузить', generate_pdf(response_for_history), file_name=f'{name}.pdf')
@@ -168,8 +164,7 @@ if 'pdf-plan' not in st.session_state:
         'names' : []
     }
 
-# connection = establish_database_connection()
-# cursor = connection.cursor()
+
 
 user_nickname = st.text_input("ВВЕДИТЕ ВАШ УНИКАЛЬНЫЙ НИКНЕЙМ ЧТОБ ИСПОЛЬЗОВАТЬ ФУНКЦИЮ 👇")
 
@@ -185,8 +180,12 @@ if user_nickname:
         'Какой уровень у ученика?',
         ('Начинающий', 'Средний', 'Высокий')
     )
+    language = st.selectbox(
+        'На каком языке вернуть ответ?',
+        ('Русский', 'Английский')
+    )
 
-    custom_filter = st.text_input("Введите что то еще если есть:")
+    custom_filter = st.text_input("Дополнительные указания:")
 
     st.subheader('Создай сценарии из PDF файла')
 
@@ -206,10 +205,11 @@ if user_nickname:
                 'user_nickname' : user_nickname,
                 'student_category': student_category,
                 'student_level': student_level,
-                'custom_filter': custom_filter
+                'custom_filter': custom_filter,
+                'language' : language
             }
 
-            response = requests.post(url='https://fastapi-ngob.onrender.com/pdf/', params=params, files=files, headers={'accept': 'application/json'})
+            response = requests.post(url='https://fastapi-ngob.onrender.com/pdf', params=params, files=files, headers={'accept': 'application/json'})
             
             
             if response.status_code == 200:
@@ -248,9 +248,7 @@ if user_nickname:
 
         if submit_button and feedback_input:
 
-            # handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email)
+            handle_feedback_submission(user_nickname, rating, pdf_content, feedback_input, email)
 
             st.success("Отзыв отправлен!")
 
-# cursor.close()
-# connection.close()
