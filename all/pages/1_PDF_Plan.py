@@ -72,7 +72,7 @@ def create_tables(cursor):
     try:
         for command in commands:
             cursor.execute(command)
-            connection.commit()
+            # connection.commit()
     except (Exception, psycopg2.Error) as error:
         print("Problem with SQL:", error)
 
@@ -225,6 +225,7 @@ if user_nickname:
 
     if clear_button:
         clear_history()
+
 
     if st.session_state['pdf-plan']:
         print_generated_plans_and_store_in_db()

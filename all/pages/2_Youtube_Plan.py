@@ -107,7 +107,7 @@ def create_tables(cursor):
     try:
         for command in commands:
             cursor.execute(command)
-            connection.commit()
+            # connection.commit()
     except (Exception, psycopg2.Error) as error:
         print("Problem with SQL:", error)
 
@@ -135,26 +135,28 @@ def clear_history():
     st.session_state['youtube-plan']['generated'] = []
 
 
-def print_generated_plans_and_store_in_db():
-    with st.expander('Результаты'):
-    
-        for i in range(len(st.session_state['youtube-plan']['generated'])):
-                response_for_history = ''
+def print_generated_plans_and_store_in_db():    
+    for i in range(len(st.session_state['youtube-plan']['generated'])):
+            response_for_history = ''
 
-                for response in st.session_state['youtube-plan']['generated'][i]:
-                    
-                    for topic, value in json.loads(response).items():
-                        st.subheader(topic)
-                        response_for_history += topic
-                        response_for_history += '\n'
-                            
-                        for inst_speech, content in value.items():
-                            st.write(f'{inst_speech} : {content}')
-                            
-                            response_for_history += f'{inst_speech} : {content}'
+            for response in st.session_state['youtube-plan']['generated'][i]:
+                for r in response:
+                    for topic, value in json.loads(r).items():
+                        with st.expander(topic):
+
+                            st.subheader(topic)
+                            response_for_history += topic
                             response_for_history += '\n'
+                                
+                            for inst_speech, content in value.items():
+                                st.write(f'{inst_speech} : {content}')
+                                
+                                response_for_history += f'{inst_speech} : {content}'
+                                response_for_history += '\n'
 
-                        response_for_history += '\n'
+                            response_for_history += '\n'
+                            if response_for_history:
+                                st.download_button('Загрузить', generate_pdf(response_for_history), 'youtube.pdf')
                     
 
                     # try:
@@ -165,11 +167,14 @@ def print_generated_plans_and_store_in_db():
                     # except (Exception, psycopg2.Error) as error:
                     #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
                     #     connection.rollback()
+            
+            
+    
+    if st.session_state['youtube-plan']['no_transcript_urls']:
+        st.subheader('Эти ссылки не имеют транскрипта: \n')
+        for url in st.session_state['youtube-plan']['no_transcript_urls']:
+            st.write(url[0])
 
-                if response_for_history:
-                    st.download_button('Загрузить', generate_pdf(response_for_history), 'youtube.pdf')
-                
-                st.divider()
 
 
 def is_youtube_link(link):
@@ -180,6 +185,7 @@ def is_youtube_link(link):
 if 'youtube-plan' not in st.session_state:
     st.session_state['youtube-plan'] = {
         'generated' : [],
+        'no_transcript_urls' : []
     }
 
 
@@ -236,7 +242,8 @@ if user_nickname:
             
                 if response.status_code == 200:
                     json_data = response.json()
-                    st.session_state['youtube-plan']['generated'].append(json_data['scenario'])
+                    st.session_state['youtube-plan']['generated'].append(json_data['scenario'][:-1])
+                    st.session_state['youtube-plan']['no_transcript_urls'].append(json_data['scenario'][-1])
                 else:
                     print(f"Request failed with status code: {response.status_code}")
 
