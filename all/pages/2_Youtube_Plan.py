@@ -158,15 +158,6 @@ def print_generated_plans_and_store_in_db():
                             if response_for_history:
                                 st.download_button('Загрузить', generate_pdf(response_for_history), 'youtube.pdf')
                     
-
-                    # try:
-                    #     command = 'INSERT INTO history_youtube (user_id, topic, response) VALUES(%s, %s, %s)' 
-                    #     cursor.execute(command, (user_nickname, user_input, response_for_history,))
-                    #     connection.commit()
-
-                    # except (Exception, psycopg2.Error) as error:
-                    #     print("Error executing SQL statements when setting pdf_file in history_pdf:", error)
-                    #     connection.rollback()
             
             
     

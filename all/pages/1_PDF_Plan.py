@@ -194,30 +194,31 @@ if user_nickname:
     submit_button = st.button(label='Создать')
 
     if submit_button:
-        if not source_doc:
-            st.error("Пожалуйста загрузите файл.")
-        else:
-            file_data = source_doc.read()
-
-            files = {'file': file_data} 
-
-            params = {
-                'user_nickname' : user_nickname,
-                'student_category': student_category,
-                'student_level': student_level,
-                'custom_filter': custom_filter,
-                'language' : language
-            }
-
-            response = requests.post(url='https://fastapi-ngob.onrender.com/pdf', params=params, files=files, headers={'accept': 'application/json'})
-            
-            
-            if response.status_code == 200:
-                json_data = response.json()
-                st.session_state['pdf-plan']['generated'].append(json_data['scenario'])
-                st.session_state['pdf-plan']['names'].append(source_doc.name)
+        with st.spinner('Пожалуйста подождите 2 - 5 минут'):
+            if not source_doc:
+                st.error("Пожалуйста загрузите файл.")
             else:
-                print(f"Request failed with status code: {response.status_code}")
+                file_data = source_doc.read()
+
+                files = {'file': file_data} 
+
+                params = {
+                    'user_nickname' : user_nickname,
+                    'student_category': student_category,
+                    'student_level': student_level,
+                    'custom_filter': custom_filter,
+                    'language' : language
+                }
+
+                response = requests.post(url='https://fastapi-ngob.onrender.com/pdf', params=params, files=files, headers={'accept': 'application/json'})
+                
+                
+                if response.status_code == 200:
+                    json_data = response.json()
+                    st.session_state['pdf-plan']['generated'].append(json_data['scenario'])
+                    st.session_state['pdf-plan']['names'].append(source_doc.name)
+                else:
+                    print(f"Request failed with status code: {response.status_code}")
 
     clear_button = st.button("Очистить", key="clear")
 
